@@ -1,0 +1,12 @@
+Maybe simplify sectors to eliminate subsectors and set exit points.  Instead just provide one or more
+exit points on each side and allow L shaped tunnels between two random exits?
+
+Add a "BreatherAI" for creatures that need air.
+
+Allow ability to nest AIs.  Ex. BreatherAI + HostileEnemy.
+Breather only checks to see if they are in vacuum and need
+to move towards O2.  Otherwise, HostileEnemy.
+
+Allow you to "float" across space tiles.  Actor needs momentum (simple (dx,dy)) and a new Input Handler that moves them
+every turn.  Bounce off walls? Or maybe stick to walls, since magnet boots.  No other actions possible if floating.
+Means Breaches can actually be way more complicated, as you can cross them.
