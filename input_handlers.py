@@ -558,7 +558,11 @@ class MainGameEventHandler(EventHandler):
     elif key == tcod.event.K_c:
       return CharacterScreenEventHandler(self.engine)
     elif key == tcod.event.K_SLASH:
-      return LookHandler(self.engine)
+      if modifier & (tcod.event.KMOD_LSHIFT | tcod.event.KMOD_RSHIFT):
+        self.engine.game_map.show_debug = not self.engine.game_map.show_debug
+      else:
+        return LookHandler(self.engine)
+
 
     return action
 

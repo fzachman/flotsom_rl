@@ -1,19 +1,36 @@
 import numpy as np
+import random
 from tcod.console import Console
 
 from entity import Actor, Item
 import tile_types
 
 class GameMap:
-  def __init__(self, engine, width, height, entities=()):
+  def __init__(self, engine, width, height, tile_set, entities=()):
     self.engine = engine
     self.width, self.height = width, height
     self.entities = set(entities)
-    self.tiles = np.full((width, height), fill_value=tile_types.wall, order='F')
+    self.tile_set = tile_set
+    self.tiles = np.full((width, height), fill_value=tile_set.get_tile_type('wall','basic'), order='F')
 
     self.visible = np.full((width, height), fill_value=False, order="F")  # Tiles the player can currently see
+    self.dim = np.full((width, height), fill_value=False, order="F")  # Tiles the player can currently see
     self.explored = np.full((width, height), fill_value=False, order="F")  # Tiles the player has seen before
     self.downstairs_location = (0,0)
+    self._rooms = []
+    self.room_lookup = {}
+    self.show_debug = False
+
+  @property
+  def rooms(self):
+    return self._rooms
+
+  @rooms.setter
+  def rooms(self, rooms):
+    self._rooms = rooms
+    for r in rooms:
+      for xy in r.coords:
+        self.room_lookup[xy] = r
 
   @property
   def gamemap(self):
@@ -90,14 +107,39 @@ class GameMap:
     """
     o_x, o_y, e_x, e_y = self.get_viewport()
     viewport_tiles = self.tiles[o_x:e_x+1,o_y:e_y + 1]
+    viewport_dim = self.dim[o_x:e_x+1,o_y:e_y + 1]
     viewport_visible = self.visible[o_x:e_x+1,o_y:e_y + 1]
     viewport_explored = self.explored[o_x:e_x+1,o_y:e_y + 1]
     #print(f'({o_x},{o_y}), ({e_x},{e_y})')
-    console.tiles_rgb[0:80, 0:43] = np.select(
-        condlist=[viewport_visible, viewport_explored],
-        choicelist=[viewport_tiles["light"], viewport_tiles["dark"]],
+    #print(f'Viewport Tiles: ({len(viewport_tiles)},{len(viewport_tiles[0])})')
+    #print(f'Viewport Dim: ({len(viewport_dim)},{len(viewport_dim[0])})')
+    #print(f'Viewport Visible: ({len(viewport_visible)},{len(viewport_visible[0])})')
+    #print(f'Viewport Explored: ({len(viewport_explored)},{len(viewport_explored[0])})')
+    console.tiles_rgb[0:self.engine.game_world.viewport_width, 0:self.engine.game_world.viewport_height] = np.select(
+        condlist=[viewport_visible, viewport_dim, viewport_explored],
+        choicelist=[viewport_tiles["light"], viewport_tiles['dim'], viewport_tiles["dark"]],
         default=tile_types.SHROUD
     )
+
+    # Quick room visualizer
+    if self.show_debug:
+      for room in self.rooms:
+        color = room.color
+        #print(f'Painting room {color}, ({room.min_x},{room.min_y}),({room.max_x},{room.max_y})')
+        for x,y in room.coords:
+          if o_x <= x <= e_x and o_y <= y <= e_y:
+            console.tiles_rgb['bg'][x-o_x,y-o_y] = color
+
+      # Highlight the exits of the room we're in
+      this_room = self.room_lookup.get((self.engine.player.x, self.engine.player.y))
+      if this_room:
+        for x,y in this_room.exits:
+          if o_x <= x <= e_x and o_y <= y <= e_y:
+            console.tiles_rgb['bg'][x-o_x,y-o_y] = (255,0,0)
+        for room in this_room.connecting_rooms:
+          for x,y in room.coords:
+            if o_x <= x <= e_x and o_y <= y <= e_y:
+              console.tiles_rgb['bg'][x-o_x,y-o_y] = (255,255,255)
     #console.tiles_rgb[0:self.width, 0:self.height] = np.select(
     #    condlist=[self.visible, self.explored],
     #    choicelist=[self.tiles["light"], self.tiles["dark"]],
@@ -108,7 +150,7 @@ class GameMap:
     )
 
     for entity in entities_sorted_for_rendering:
-      if self.visible[entity.x, entity.y]:
+      if self.visible[entity.x, entity.y] or self.dim[entity.x, entity.y]:
         console.print(x=entity.x - o_x,
                       y=entity.y - o_y,
                       string=entity.char,
@@ -122,50 +164,44 @@ class GameWorld:
   def __init__(self,
                *,
                engine,
-               map_width,
-               map_height,
                viewport_width,
                viewport_height,
-               max_rooms,
-               room_min_size,
-               room_max_size,
                current_floor=0):
     self.engine = engine
 
-    self.map_width = map_width
-    self.map_height = map_height
 
     self.viewport_width = viewport_width
     self.viewport_height = viewport_height
 
-    self.max_rooms = max_rooms
+    self.min_map_width = viewport_width
+    self.min_map_height = viewport_height
 
-    self.room_min_size = room_min_size
-    self.room_max_size = room_max_size
+
 
     self.current_floor = current_floor
 
   def generate_floor(self):
     self.current_floor += 1
+    map_width = random.randint(self.min_map_width, self.min_map_width * 2)
+    map_height = random.randint(self.min_map_height, self.min_map_height * 2)
+    #TODO: Choose different tile sets for different ship types
+    tile_set = tile_types.basic_tile_set
 
-    #from procgen2 import generate_dungeon
+    from procgen_wfc import generate_dungeon
+    self.engine.game_map = generate_dungeon(map_width=map_width,
+                                           map_height=map_height,
+                                           engine=self.engine,
+                                           tile_set=tile_set)
+    return
 
-    #self.engine.game_map = generate_dungeon(sector_width=33,
-    #                                        sector_height=33,
-    #                                        max_sectors=6,
-    #                                        map_width_in_sectors=4,
-    #                                        map_height_in_sectors=4,
-    #                                        engine=self.engine)
+    #from procgen import generate_dungeon
 
-    #return
-
-    from procgen import generate_dungeon
-
-    self.engine.game_map = generate_dungeon(
-      max_rooms=self.max_rooms,
-      room_min_size=self.room_min_size,
-      room_max_size=self.room_max_size,
-      map_width=self.map_width,
-      map_height=self.map_height,
-      engine=self.engine,
-    )
+    #self.engine.game_map = generate_dungeon(
+    #  max_rooms=self.max_rooms,
+    #  room_min_size=self.room_min_size,
+    #  room_max_size=self.room_max_size,
+    #  map_width=self.map_width,
+    #  map_height=self.map_height,
+    #  engine=self.engine,
+    #  tile_set=tile_types.basic_tile_set
+    #)

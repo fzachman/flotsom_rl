@@ -1,6 +1,7 @@
 import lzma
 import pickle
 
+import tcod
 from tcod.context import Context
 from tcod.console import Console
 from tcod.map import compute_fov
@@ -30,10 +31,19 @@ class Engine:
     self.game_map.visible[:] = compute_fov(
       self.game_map.tiles['transparent'],
       (self.player.x, self.player.y),
-      radius=8,
+      radius=5,
+      algorithm=tcod.FOV_BASIC
     )
+    self.game_map.dim[:] = compute_fov(
+      self.game_map.tiles['transparent'],
+      (self.player.x, self.player.y),
+      radius=8,
+      algorithm=tcod.FOV_BASIC
+    )
+
     # If a tile is visible, it should be added to explored
     self.game_map.explored |= self.game_map.visible
+    self.game_map.explored |= self.game_map.dim
 
   def render(self, console):
     self.game_map.render(console)

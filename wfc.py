@@ -61,7 +61,7 @@ def get_all_rotations(tile):
             tuple(tuple(row) for row in tile_rotated_3))
 
 Tile = namedtuple('Tile', ('data','sides','weight'))
-letters = string.ascii_uppercase
+#letters = string.ascii_uppercase
 def get_tile_sides(tile, tile_size):
   # Right, Up, Left, Down
   right = ''
@@ -69,10 +69,10 @@ def get_tile_sides(tile, tile_size):
   left  = ''
   down  = ''
   for i in range(0, tile_size):
-    right += letters[tile[i, tile_size -1]]
-    up    += letters[tile[0, i]]
-    left +=  letters[tile[i, 0]]
-    down  += letters[tile[tile_size -1, i]]
+    right += '%03d' % (tile[i, tile_size -1])
+    up    += '%03d' % (tile[0, i])
+    left  += '%03d' % (tile[i, 0])
+    down  += '%03d' % (tile[tile_size -1, i])
   return (right, up, left, down)
 
 def create_tiles(source, tile_size=2):
@@ -109,15 +109,25 @@ def run_iteration(tiles, weights, old_potential):
     elif not np.any(potential[to_collapse]):              #2
         raise Exception(f"No choices left at {to_collapse}")
     else:                                                 #4 ↓
-        nonzero = find_true(potential[to_collapse])
-        tile_probs = weights[nonzero]/sum(weights[nonzero])
-        selected_tile = np.random.choice(nonzero, p=tile_probs)
-        #print(f'{to_collapse} is now {tiles[selected_tile]}')
-        #import pdb; pdb.set_trace()
-        potential[to_collapse] = False
-        potential[to_collapse][selected_tile] = True
-        propagate(tiles, potential, to_collapse)                 #5
+        #nonzero = find_true(potential[to_collapse])
+        #tile_probs = weights[nonzero]/sum(weights[nonzero])
+        #selected_tile = np.random.choice(nonzero, p=tile_probs)
+        #potential[to_collapse] = False
+        #potential[to_collapse][selected_tile] = True
+        #propagate(tiles, potential, to_collapse)                 #5
+        potential = collapse(tiles, weights, potential, to_collapse)
     return potential
+
+def collapse(tiles, weights, potential, to_collapse):
+  nonzero = find_true(potential[to_collapse])
+  tile_probs = weights[nonzero]/sum(weights[nonzero])
+  selected_tile = np.random.choice(nonzero, p=tile_probs)
+  #print(f'{to_collapse} is now {tiles[selected_tile]}')
+  #import pdb; pdb.set_trace()
+  potential[to_collapse] = False
+  potential[to_collapse][selected_tile] = True
+  propagate(tiles, potential, to_collapse)
+  return potential
 
 def location_with_fewest_choices(potential):
     num_choices = np.sum(potential, axis=2, dtype='float32')
@@ -175,15 +185,19 @@ def add_constraint(tiles, potential, location, incoming_direction, possible_tile
     neighbor_constraint = {t.sides[incoming_direction.value] for t in possible_tiles}
     outgoing_direction = incoming_direction.reverse()
     changed = False
+    #print(f'Checking neighbor against {neighbor_constraint}')
     for i_p, p in enumerate(potential[location]):
         if not p:
             continue
         #print(f'Searching for {tiles[i_p].sides[outgoing_direction.value]} in {neighbor_constraint}')
         if tiles[i_p].sides[outgoing_direction.value] not in neighbor_constraint:
+            #print(f'Invalid {tiles[i_p].sides[outgoing_direction.value]}')
             potential[location][i_p] = False
             changed = True
+        #else:
+          #print(f'Valid {tiles[i_p].sides[outgoing_direction.value]}')
     #import pdb; pdb.set_trace()
-
+    #print(f'{potential[location]}, {np.any(potential[location])}')
     if not np.any(potential[location]):
         raise Exception(f"No patterns left at {location}")
     return changed
@@ -193,23 +207,24 @@ def get_wfc(source=None, tiles=[], tile_size=2, width=20, height=20):
     tiles = create_tiles(source, tile_size)
 
   weights = np.asarray([t.weight for t in tiles])
-  for t in tiles:
-    print(t.weight, t.data)
-  p = potential = np.full((height, width, len(tiles)), True)
+  #for t in tiles:
+  #  print(t.weight, t.data)
+  p = np.full((height, width, len(tiles)), True)
 
   tries = 0
-  while tries < 100:
+  while tries < 5000:
       try:
           p = run_iteration(tiles, weights, p)
           #images.append(show_state(p, tiles))  # Move me for speed
       except StopIteration as e:
           break
       except:
-        pass
+        p = np.full((height, width, len(tiles)), True)
       tries += 1
 
+  print(tries)
   p = p.tolist()
-  pixels = np.full((height * tile_size, width * tile_size), 0)
+  pixels = np.full((height * (tile_size)+1, width * (tile_size)+1), 0)
   #print(len(p), len(pixels), len(p[0]), len(pixels[0]))
   rows = []
   for x, row in enumerate(p):
@@ -220,11 +235,11 @@ def get_wfc(source=None, tiles=[], tile_size=2, width=20, height=20):
         if tf:
           #print(tiles[t].data)
           #print(x, y, x*tile_size, x*tile_size+tile_size, y*tile_size, y*tile_size+tile_size, len(pixels), len(pixels[0]))
-          pixels[x*tile_size:x*tile_size+tile_size,y*tile_size:y*tile_size+tile_size] = tiles[t].data
+          pixels[x*(tile_size):x*(tile_size)+tile_size,y*(tile_size):y*(tile_size)+tile_size] = tiles[t].data
           #new_row.append(tiles[t])
     #rows.append(new_row)
 
-  print('\n'.join([''.join(str(c) for c in r) for r in pixels.tolist()]))
+  #print('\n'.join([''.join(str(c) for c in r) for r in pixels.tolist()]))
   return pixels
 
 

@@ -19,8 +19,8 @@ background_image = tcod.image.load('menu_background.png')[:,:,:3]
 
 def new_game():
   """ Return a brand new game session as an Engine instance"""
-  map_width = 160#80
-  map_height = 86#43
+  #map_width = 80#80
+  #map_height = 80#43
 
   # The map can be bigger than the renderable area
   # This is the size of the viewport the player sees
@@ -28,9 +28,9 @@ def new_game():
   viewport_width = 80
   viewport_height = 43
 
-  room_max_size = 10
-  room_min_size = 6
-  max_rooms = 60
+  #room_max_size = 10
+  #room_min_size = 6
+  #max_rooms = 60
 
   #tileset = tcod.tileset.load_tilesheet('dejavu10x10_gs_tc.png', 32, 8, tcod.tileset.CHARMAP_TCOD)
 
@@ -38,11 +38,6 @@ def new_game():
   engine = Engine(player=player)
 
   engine.game_world = GameWorld(engine=engine,
-                                max_rooms=max_rooms,
-                                room_min_size=room_min_size,
-                                room_max_size=room_max_size,
-                                map_width=map_width,
-                                map_height=map_height,
                                 viewport_width=viewport_width,
                                 viewport_height=viewport_height
                                 )
@@ -84,7 +79,7 @@ def load_game(filename):
   return engine
 
 def launch_creator():
-  engine = CreatorEngine(33,33)
+  engine = CreatorEngine()
   return engine
 
 class MainMenu(input_handlers.BaseEventHandler):

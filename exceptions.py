@@ -5,3 +5,6 @@ class Impossible(Exception):
 
 class QuitWithoutSaving(SystemExit):
   """ Can be raised to exit the game without automatically saving"""
+
+class DuplicateNameException(Exception):
+  """ Raised by the creator when you add a brush/set with the same name as another """

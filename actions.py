@@ -151,8 +151,9 @@ class MovementAction(ActionWithDirection):
     if not self.engine.game_map.in_bounds(dest_x, dest_y):
       # Destination is out of bounds.
       raise exceptions.Impossible('That way is blocked.')
-    if self.engine.game_map.tiles[dest_x, dest_y] == tile_types.door_closed:
-      self.engine.game_map.tiles[dest_x, dest_y] = tile_types.door_open
+    #if self.engine.game_map.tiles[dest_x, dest_y] == tile_types.door_closed:
+    if self.engine.game_map.tile_set.is_tile_class(self.engine.game_map.tiles[dest_x, dest_y], 'door', 'closed'):
+      self.engine.game_map.tiles[dest_x, dest_y] = self.engine.game_map.tile_set.get_tile_type('door','open')#tile_types.door_open
       return
     if not self.engine.game_map.tiles["walkable"][dest_x, dest_y]:
       # Destination is blocked by a tile.
