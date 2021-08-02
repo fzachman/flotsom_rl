@@ -45,6 +45,41 @@ class Engine:
     self.game_map.explored |= self.game_map.visible
     self.game_map.explored |= self.game_map.dim
 
+  def update_vacuum(self):
+    """ Mark tiles affected by vacuum sources """
+    vacuumed     = set()
+    for source in self.game_map.vacuum_sources:
+      vacuumed.update(self._vacuum(source, vacuumed))
+
+    vacuum_tiles = set()
+    for room in vacuumed:
+      vacuum_tiles.update(room.coords)
+      vacuum_tiles.update(room.exits)
+      #for x,y in room.coords.union(room.exits):
+      #  self.game_map.vacuum[x,y] = True
+    self.game_map.vacuum_tiles = vacuum_tiles
+
+
+  def _vacuum(self, room, vacuumed):
+    """shlorp shlorp!"""
+    vacuumed.add(room)
+    #print(f'Vacuuming room with {len(room.connecting_rooms)} neighbors')
+    for neighbor in room.connecting_rooms:
+      if neighbor not in vacuumed:
+        connecting_exits = neighbor.exits.intersection(room.exits)
+        #print(f'Checking my exits {room.exits} against neighbor exits {neighbor.exits} and found {connecting_exits}')
+        for exit in connecting_exits:
+          if self.game_map.tiles[exit[0],exit[1]]['walkable']:
+            #print(f'Found neighbor to vacuum at exit ({exit[0]},{exit[1]}).  Spreading!')
+            # Might need a "permeable" attribute at some point if we want
+            # tiles to allow air out without being walkable
+            vacuumed.update(self._vacuum(neighbor, vacuumed))
+            break
+          else:
+            #print(f'Neighbor exit at ({exit[0]},{exit[1]}) is sealed.  You are safe for now!')
+            pass
+    return vacuumed
+
   def render(self, console):
     self.game_map.render(console)
 

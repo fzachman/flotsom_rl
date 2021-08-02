@@ -2,6 +2,7 @@ import color
 from components.base_component import BaseComponent
 from input_handlers import GameOverEventHandler
 from render_order import RenderOrder
+from equipment_types import EquipmentType
 
 class Fighter(BaseComponent):
   def __init__(self, hp, base_defense, base_power, base_accuracy, shields=0):
@@ -61,6 +62,28 @@ class Fighter(BaseComponent):
       return self.parent.equipment.accuracy_bonus
     else:
       return 0
+
+
+  def after_melee_damage(self, damage_dealt, target):
+    equipment = self.parent.equipment
+    if equipment:
+      for item_slot in equipment.item_slots:
+        if item_slot.item and item_slot.item.equippable.equipment_type in (EquipmentType.MELEE_WEAPON,EquipmentType.ACCESSORY):
+          item_slot.item.equippable.after_melee_damage(damage_dealt, target)
+
+  def after_ranged_damage(self, damage_dealt, target):
+    equipment = self.parent.equipment
+    if equipment:
+      for item_slot in equipment.item_slots:
+        if item_slot.item and item_slot.item.equippable.equipment_type in (EquipmentType.RANGED_WEAPON,EquipmentType.ACCESSORY):
+          item_slot.item.equippable.after_ranged_damage(damage_dealt, target)
+
+  def after_damaged(self, damage_taken, source):
+    equipment = self.parent.equipment
+    if equipment:
+      for item_slot in equipment.item_slots:
+        if item_slot.item and item_slot.item.equippable.equipment_type in (EquipmentType.OUTFIT,EquipmentType.ACCESSORY):
+          item_slot.item.equippable.after_damaged(damage_taken, source)
 
 
 

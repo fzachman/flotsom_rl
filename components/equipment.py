@@ -14,7 +14,7 @@ class Equipment(BaseComponent):
       ItemSlot(EquipmentType.MELEE_WEAPON, 'Melee Weapon'),
       ItemSlot(EquipmentType.RANGED_WEAPON, 'Ranged Weapon'),
       ItemSlot(EquipmentType.OUTFIT, 'Outfit'),
-      ItemSlot(EquipmentType.ACCESSORRY, 'Accessory'),
+      ItemSlot(EquipmentType.ACCESSORY, 'Accessory'),
     ]
 
   @property
@@ -50,6 +50,18 @@ class Equipment(BaseComponent):
         total_shields += item_slot.item.equippable.current_shields
     return total_shields
 
+  def has_item_in_slot(self, equipment_type):
+    for s in self.item_slots:
+      if s.equipment_type == equipment_type and s.item is not None:
+        return True
+    return False
+
+  def get_item_in_slot(self, equipment_type):
+    for s in self.item_slots:
+      if s.equipment_type == equipment_type and s.item is not None:
+        return s.item
+    return None
+    
   def item_is_equipped(self, item):
     for item_slot in self.item_slots:
       if item_slot.item == item:
@@ -57,7 +69,7 @@ class Equipment(BaseComponent):
     return False
 
   def unequip_message(self, item_name):
-    self.parent.gamemap.engine.message_log.add_message(f'You remove the {item_name}.')
+    self.parent.gamemap.engine.message_log.add_message(f'You unequip the {item_name}.')
 
   def equip_message(self, item_name):
     self.parent.gamemap.engine.message_log.add_message(f'You equip the {item_name}.')
@@ -88,18 +100,3 @@ class Equipment(BaseComponent):
         else:
           self.equip(equippable_item, add_message)
         break
-
-  def perform_after_melee_damage(self, damage_dealt, target):
-    for item_slot in self.item_slots:
-      if item_slot.item and item_slot.item.equipment_type in (EquipmentType.MELEE,EquipmentType.ACCESSORY):
-        item_slot.item.equippable.after_melee_damage(damage_dealt, target)
-
-  def perform_after_ranged_damage(self, damage_dealt, target):
-    for item_slot in self.item_slots:
-      if item_slot.item and item_slot.item.equipment_type in (EquipmentType.RANGED,EquipmentType.ACCESSORY):
-        item_slot.item.equippable.after_ranged_damage(damage_dealt, target)
-
-  def perform_after_damaged(self, damage_taken, source):
-    for item_slot in self.item_slots:
-      if item_slot.item and item_slot.item.equipment_type in (EquipmentType.OUTFIT,EquipmentType.ACCESSORY):
-        item.equippable.after_damaged(damage_taken, source)

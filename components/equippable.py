@@ -22,6 +22,10 @@ class Equippable(BaseComponent):
     self.max_energy_level = max_energy_level
     self.current_energy_level = self.max_energy_level
 
+    self._after_melee_damage_effects = []
+    self._after_ranged_damage_effects = []
+    self._after_damaged_effects = []
+
   @property
   def is_energized(self):
     if self.max_energy_level > 0 and self.current_energy_level <= 0:
@@ -72,23 +76,41 @@ class Equippable(BaseComponent):
       if self.current_energy_level < 0:
         overdepletion = abs(self.current_energy_level)
         self.current_energy_level = 0
+    if self.current_energy_level == 0:
+      # Uh.....
+      self.parent.parent.parent.parent.engine.message_log.add_message(f'{self.parent.name} has run out of energy!')
     return over_depletion
 
+  def add_after_melee_damage_effect(self, effect):
+    """ Add a component that triggers after doing melee damage."""
+    self._after_melee_damage_effects.append(effect)
+
+  def add_after_ranged_damage_effect(self, effect):
+    """ Add a component that triggers after doing ranged damage."""
+    self._after_ranged_damage_effects.append(effect)
+
+  def add_after_damaged_effect(self, effect):
+    """ Add a component that triggers after doing taking damage."""
+    self._after_damaged_effects.append(effect)
+
   def after_melee_damage(self, damage_dealt, target=None):
-    """ Allows subclasses to provide rider effects after they do melee damage to an actor
-    """
-    pass
+    for effect in self._after_melee_damage_effects:
+      if self.is_energized:
+        effect.trigger(self.parent.parent.parent, damage_dealt, target)
+        self.deplete()
 
   def after_ranged_damage(self, damage_dealt, target=None):
-    """ Allows subclasses to provide rider effects after they do ranged damage to an actor"""
-    pass
+    for effect in self._after_ranged_damage_effects:
+      if self.is_energized:
+        effect.trigger(self.parent.parent.parent, damage_dealt, target)
+        self.deplete()
 
 
   def after_damaged(self, damage_taken, source=None):
-    """ Allows subclasses to provide rider effects after the equipped entity
-    takes damage"""
-    pass
-
+    for effect in self._after_damaged_effects:
+      if self.is_energized:
+        effect.trigger(source, damage_taken, self.parent.parent.parent)
+        self.deplete()
 
 class Knife(Equippable):
   def __init__(self):

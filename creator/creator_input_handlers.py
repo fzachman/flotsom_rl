@@ -314,12 +314,12 @@ class DrawBrushHandler(CreatorEventHandler):
     self.brush.data[x,y] = 0
 
   def rename_brush(self, brush_name):
-    brush_name = brush_name.strip()
+    brush_name = brush_name[0].strip()
     if brush_name:
       if brush_name in self.engine.brushes:
         self.engine.message_log.add_message('That brush name is already in use.')
       else:
-        self.brush.name = text.strip()
+        self.brush.name = brush_name.strip()
     return self
 
   def delete_brush(self, confirm):

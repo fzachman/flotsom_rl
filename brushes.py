@@ -1,4 +1,5 @@
 import numpy as np
+import json
 
 class Brush:
   def __init__(self, name, size=3, data = []):
@@ -57,3 +58,22 @@ class BrushSet:
     return {'name': self.name,
             'brush_size': self.brush_size,
             'brushes': brushes}
+
+
+def load_brushes(filename='brushes.json'):
+  brushes = {}
+  brush_sets = {}
+  with open('brushes.json', 'r') as f:
+    brush_data = json.loads(f.read())
+    for b in brush_data['brushes']:
+      brush = Brush(b['name'],b['size'],b['data'])
+      brushes[brush.name] = brush
+    for s in brush_data['brush_sets']:
+      brush_set = BrushSet(s['name'], s['brush_size'])
+      for b in s['brushes']:
+        brush = brushes.get(b['brush_name'])
+        if brush:
+          weight = b['weight']
+          brush_set.add_brush(brush, weight)
+      brush_sets[brush_set.name] = brush_set
+  return brush_sets

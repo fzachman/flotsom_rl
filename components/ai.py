@@ -42,7 +42,7 @@ class TemporaryAI(BaseAI):
   AI"""
   def __init__(self, entity, previous_ai, new_ai, turns_remaining, expire_message=None):
     super().__init__(entity)
-    self.previous_ai
+    self.previous_ai = previous_ai
     self.new_ai = new_ai
     self.turns_remaining = turns_remaining
     self.expire_message = expire_message

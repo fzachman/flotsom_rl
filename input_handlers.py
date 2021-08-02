@@ -6,9 +6,11 @@ import actions
 from actions import (Action,
                      BumpAction,
                      PickupAction,
-                     WaitAction,)
+                     WaitAction,
+                     ActivateAction)
 import color
 import exceptions
+from equipment_types import EquipmentType
 
 MOVE_KEYS = {
   # Arrow keys.
@@ -125,6 +127,7 @@ class EventHandler(BaseEventHandler):
 
     self.engine.handle_enemy_turns()
     self.engine.update_fov()
+    self.engine.update_vacuum()
     return True
 
   def ev_mousemotion(self, event):
@@ -224,8 +227,8 @@ class LevelUpEventHandler(AskUserEventHandler):
     console.draw_frame(
           x=x,
           y=0,
-          width=35,
-          height=8,
+          width=40,
+          height=9,
           title=self.TITLE,
           clear=True,
           fg=(255, 255, 255),
@@ -248,12 +251,12 @@ class LevelUpEventHandler(AskUserEventHandler):
     console.print(
       x=x + 1,
       y=6,
-      string=f"d) Accuracy (+1 ranged, from {self.engine.player.fighter.base_accuracy})",
+      string=f"c) Accuracy (+1 ranged, from {self.engine.player.fighter.base_accuracy})",
     )
     console.print(
       x=x + 1,
       y=7,
-      string=f"c) Agility (+1 defense, from {self.engine.player.fighter.base_defense})",
+      string=f"d) Agility (+1 defense, from {self.engine.player.fighter.base_defense})",
     )
 
 
@@ -262,7 +265,7 @@ class LevelUpEventHandler(AskUserEventHandler):
     key = event.sym
     index = key - tcod.event.K_a
 
-    if 0 <= index <= 2:
+    if 0 <= index <= 3:
       if index == 0:
         player.level.increase_max_hp()
       elif index == 1:
@@ -480,6 +483,9 @@ class SingleRangedAttackHandler(SelectIndexHandler):
     self.callback = callback
 
   def on_index_selected(self, x, y):
+    v_x, v_y, v_x1, v_y1 = self.engine.game_map.get_viewport()
+    x+= v_x
+    y += v_y
     return self.callback((x, y))
 
 class AreaRangedAttackHandler(SelectIndexHandler):
@@ -540,12 +546,28 @@ class MainGameEventHandler(EventHandler):
     elif key in WAIT_KEYS:
       action = WaitAction(player)
 
+    elif key == tcod.event.K_s:
+      ranged_weapon = player.equipment.get_item_in_slot(EquipmentType.RANGED_WEAPON)
+      if not ranged_weapon:
+        self.engine.message_log.add_message('You do not have a ranged weapon equipped!')
+      elif not ranged_weapon.equippable.is_energized:
+        self.engine.message_log.add_message('That item is depleted.  Recharge it with an energy cell before using!')
+      else:
+        self.engine.message_log.add_message('Select a target.', color.needs_target)
+        return SingleRangedAttackHandler(
+                  self.engine,
+                  callback=lambda xy: actions.TargetedRangedAttack(player, xy),
+                )
+
     elif key in (tcod.event.K_ESCAPE, tcod.event.K_q):
       raise SystemExit()
     elif key == tcod.event.K_v:
       return HistoryViewer(self.engine)
     elif key == tcod.event.K_g:
       action = PickupAction(player)
+
+    elif key == tcod.event.K_SPACE:
+      action = ActivateAction(player)
 
     elif key == tcod.event.K_m:
       self.engine.game_map.reveal_map()

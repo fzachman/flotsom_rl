@@ -224,7 +224,7 @@ def get_wfc(source=None, tiles=[], tile_size=2, width=20, height=20):
 
   print(tries)
   p = p.tolist()
-  pixels = np.full((height * (tile_size)+1, width * (tile_size)+1), 0)
+  pixels = np.full((height * (tile_size), width * (tile_size)), 0)
   #print(len(p), len(pixels), len(p[0]), len(pixels[0]))
   rows = []
   for x, row in enumerate(p):

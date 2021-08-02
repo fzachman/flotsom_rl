@@ -12,14 +12,16 @@ class GameMap:
     self.entities = set(entities)
     self.tile_set = tile_set
     self.tiles = np.full((width, height), fill_value=tile_set.get_tile_type('wall','basic'), order='F')
-
+    #self.vacuum = np.full((width, height), fill_value=False, order="F")  # Tiles that are in vacuum
     self.visible = np.full((width, height), fill_value=False, order="F")  # Tiles the player can currently see
     self.dim = np.full((width, height), fill_value=False, order="F")  # Tiles the player can currently see
     self.explored = np.full((width, height), fill_value=False, order="F")  # Tiles the player has seen before
     self.downstairs_location = (0,0)
     self._rooms = []
     self.room_lookup = {}
+    self.vacuum_sources = []
     self.show_debug = False
+    self.vacuum_tiles = set()
 
   @property
   def rooms(self):
@@ -28,9 +30,18 @@ class GameMap:
   @rooms.setter
   def rooms(self, rooms):
     self._rooms = rooms
+    self.room_lookup = {}
+    self.vacuum_sources = []
     for r in rooms:
       for xy in r.coords:
         self.room_lookup[xy] = r
+      if r.is_vacuum_source:
+        self.vacuum_sources.append(r)
+
+  def add_room(self, new_room):
+    new_rooms = self._rooms.copy()
+    new_rooms.append(new_room)
+    self.rooms = new_rooms
 
   @property
   def gamemap(self):
@@ -96,7 +107,6 @@ class GameMap:
       end_y    -= y_diff
     return ((origin_x, origin_y, end_x-1, end_y-1))
 
-
   def render(self, console):
     """
     Renders the map.
@@ -106,10 +116,13 @@ class GameMap:
     Otherwise, the default is "SHROUD".
     """
     o_x, o_y, e_x, e_y = self.get_viewport()
-    viewport_tiles = self.tiles[o_x:e_x+1,o_y:e_y + 1]
-    viewport_dim = self.dim[o_x:e_x+1,o_y:e_y + 1]
-    viewport_visible = self.visible[o_x:e_x+1,o_y:e_y + 1]
-    viewport_explored = self.explored[o_x:e_x+1,o_y:e_y + 1]
+    s_x = slice(o_x, e_x+1)
+    s_y = slice(o_y,e_y+1)
+    viewport_tiles    = self.tiles[s_x,s_y]#[o_x:e_x+1,o_y:e_y + 1]
+    #vacuumed          = self.vacuum[s_x,s_y]
+    viewport_dim      = self.dim[s_x,s_y]
+    viewport_visible  = self.visible[s_x,s_y]
+    viewport_explored = self.explored[s_x,s_y]
     #print(f'({o_x},{o_y}), ({e_x},{e_y})')
     #print(f'Viewport Tiles: ({len(viewport_tiles)},{len(viewport_tiles[0])})')
     #print(f'Viewport Dim: ({len(viewport_dim)},{len(viewport_dim[0])})')
@@ -120,6 +133,23 @@ class GameMap:
         choicelist=[viewport_tiles["light"], viewport_tiles['dim'], viewport_tiles["dark"]],
         default=tile_types.SHROUD
     )
+
+    for x,y in self.vacuum_tiles:
+      if o_x <= x <= e_x and o_y <= y <= e_y and self.explored[x,y]:
+        v_x = x - o_x
+        v_y = y - o_y
+        r,g,b = console.tiles_rgb['bg'][v_x,v_y]
+        r += 20
+        if r >= 255:
+          r = 255
+          g -= 20
+          b -= 20
+          if g < 0:
+            g = 0
+          if b < 0:
+            b = 0
+        console.tiles_rgb['bg'][v_x,v_y] = (r,g,b)
+
 
     # Quick room visualizer
     if self.show_debug:
@@ -182,16 +212,22 @@ class GameWorld:
 
   def generate_floor(self):
     self.current_floor += 1
-    map_width = random.randint(self.min_map_width, self.min_map_width * 2)
-    map_height = random.randint(self.min_map_height, self.min_map_height * 2)
+    #map_width = random.randint(self.min_map_width, int(self.min_map_width * 1.25))
+    #map_height = random.randint(self.min_map_height, int(self.min_map_height * 1.25))
     #TODO: Choose different tile sets for different ship types
     tile_set = tile_types.basic_tile_set
 
-    from procgen_wfc import generate_dungeon
-    self.engine.game_map = generate_dungeon(map_width=map_width,
-                                           map_height=map_height,
-                                           engine=self.engine,
-                                           tile_set=tile_set)
+    #from procgen_wfc import generate_dungeon
+    #self.engine.game_map = generate_dungeon(map_width=map_width,
+    #                                       map_height=map_height,
+    #                                       engine=self.engine,
+    #                                       tile_set=tile_set)
+    from ships import HallShip, SphereStarShip
+    ship_class = random.choice((HallShip, SphereStarShip))
+    ship = ship_class(tile_set.copy())
+    #import pdb; pdb.set_trace()
+    from procgen_ship import generate_dungeon
+    self.engine.game_map = generate_dungeon(self.engine, ship)
     return
 
     #from procgen import generate_dungeon

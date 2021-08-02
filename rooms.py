@@ -1,60 +1,65 @@
-import numpy as np
-import tile_types
 import random
-import math
 
-#TODO: Repurpose this class for prefab level seeds
+# Maybe rooms should have a component system so we can add things like:
+# Rooms with no exits and a vacuum that have a breakable wall between them and another room,
+# so component would store conditional exit, maybe trigger condition that would alter map
+# and exit path
+
 class Room:
-  def __init__(self, max_width, max_height):
-    self.max_width = max_width
-    self.max_height = max_height
+  def __init__(self, coords, walls, exits):
+    """coords/walls/exits/connecting_rooms are all sets."""
+    self.coords = coords # Basically walkable tiles in this room, floors and space usually
+    self.walls = walls # Usefull if we have no exits to find a wall to place a door
+    self.exits = exits
+    self.is_vacuum_source = False # Changed later during map creation
+    self.is_vacuum = False # Changed later during map creation
 
-    self.tiles = np.full((max_width, max_height), fill_value=None,dtype=tile_types.tile_dt, order='F')
-    self.plan = np.full((max_width, max_height), fill_value=None, dtype=object, order='F')
-    if random.randomt() <= 0.5:
-      # Rectangle room
-      width = randint(max_width // 2, max_width-2)
-      height = randint(max_height // 2, max_height-2)
-      #center_x = width // 2 + ((max_width - width) // 2)
-      #center_y = height // 2 + ((max_height - height) // 2)
-      place_x = randint(0, self.max_width - width - 1)
-      place_y = randint(0, self.max_height - height - 1)
-      for x in range(place_x, width):
-        for y in range(place_y, height):
-          self.plan[x, y] = ('floor','basic')
-    else:
-      # Circle room
-      max_dimension = self.max_width < self.max_height and self.max_width or self.max_height
-      max_radius = max_dimension // 2 - 2
-      min_radius = max_radius // 2
-      radius = randint(min_radius, max_radius)
-      x, y = self.center()
-      wiggle_room = (max_dimension - (radius * 2) - 2) // 2
-      x = x + random.randint(wiggle_room * -1, wiggle_room)
-      y = y + random.randint(wiggle_room * -1, wiggle_room)
-      for tx in range(x-radius, x+radius+1):
-        for ty in range(y-radius, y+radius+1):
-          if math.sqrt((x - tx) ** 2 + (y - ty) **2) <= radius:
-            self.plan[tx, ty] = ('floor','basic')
+
+    # Prune internal exits that only lead to ourselves.
+    removed = set()
+    for x,y in self.exits:
+      if ((x+1,y) in self.coords and (x-1,y) in self.coords) or \
+         ((x,y-1) in self.coords and (x,y+1) in self.coords):
+        # If both tiles along one axis are part of this room, this is
+        # an internally connected door that doesn't lead to another room,
+        # so remove it as an exit.
+        removed.add((x,y))
+    self.exits.difference_update(removed)
+
+    self.connecting_rooms = set() # Filled in later by procgen using self.connect_if_able
+    self.color = (random.randint(0,255),random.randint(0,255),random.randint(0,255)) # For map debugger
+    self.min_x = 9999
+    self.max_x = 0
+    self.min_y = 9999
+    self.max_y = 0
+    for x, y in coords:
+      if x < self.min_x:
+        self.min_x = x
+      if x > self.max_x:
+        self.max_x = x
+      if y < self.min_y:
+        self.min_y = y
+      if y > self.max_y:
+        self.max_y = y
 
   @property
-  def center(self):
-    center_x = int(self.width / 2)
-    center_y = int(self.height / 2)
+  def width(self):
+    return self.max_x - self.min_x + 1
 
-    return center_x, center_y
+  @property
+  def height(self):
+    return self.max_y - self.min_y + 1
 
-  def decorate(self, decorator):
-    raise NotImplementedError()
+  def connect_if_able(self, other_room):
+    if len(self.exits.intersection(other_room.exits)) > 0:
+      self.connecting_rooms.add(other_room)
+      other_room.connecting_rooms.add(self)
 
-  def place(self, game_map, map_x, map_y):
-    """ Writes this rooms tiles to the map"""
-    center_x, center_y = self.center
-    offset_x = map_x - center_x
-    offset_y = map_y - center_y
-    for x in range(self.width):
-      for y in range(self.height)
-        if self.tiles[x,y] != None:
-          new_x, new_y = x + offset_x, y + offset_y
-          if game_map.in_bounds(new_x, new_y):
-            game_map.tiles[new_x, new_y] = self.tiles[x,y]
+  def get_all_connections(self, connections=None):
+    if not connections:
+      connections = set([self])
+    for r in self.connecting_rooms:
+      if r not in connections:
+        connections.add(r)
+        connections.update(r.get_all_connections(connections))
+    return connections

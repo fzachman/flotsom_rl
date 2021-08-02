@@ -45,18 +45,26 @@ def new_game():
   engine.game_world.generate_floor()
 
   engine.update_fov()
+  engine.update_vacuum()
 
   engine.message_log.add_message('Hello and welcome, adventurer, to yet another dungeon!', color.welcome_text)
+
+  from components.effects import Knockback, ChainLightning
 
   knife = copy.deepcopy(entity_factories.knife)
   spacer_suit = copy.deepcopy(entity_factories.spacer_suit)
   popgun = copy.deepcopy(entity_factories.popgun)
   neural_scrambler = copy.deepcopy(entity_factories.neural_scrambler)
+  power_fist = copy.deepcopy(entity_factories.power_fist)
+
+  power_fist.equippable.add_after_melee_damage_effect(Knockback(1))
+  popgun.equippable.add_after_ranged_damage_effect(ChainLightning(1))
 
   knife.parent = player.inventory
   spacer_suit.parent = player.inventory
   popgun.parent = player.inventory
   neural_scrambler.parent = player.inventory
+  power_fist.parent = player.inventory
 
   player.inventory.items.append(knife)
   player.equipment.toggle_equip(knife, add_message=False)
@@ -66,7 +74,7 @@ def new_game():
 
   player.inventory.items.append(popgun)
   player.inventory.items.append(neural_scrambler)
-
+  player.inventory.items.append(power_fist)
 
 
   return engine

@@ -140,8 +140,28 @@ class MeleeAction(ActionWithDirection):
     if damage > 0:
       self.engine.message_log.add_message(f'{attack_desc} for {damage} hit points.', attack_color)
       target.fighter.hp -= damage
+      self.entity.fighter.after_melee_damage(damage, target)
+      target.fighter.after_damaged(damage, self.entity)
     else:
       self.engine.message_log.add_message(f'{attack_desc} but does no damage.', attack_color)
+
+class ActivateAction(Action):
+  def perform(self):
+    x = self.entity.x
+    y = self.entity.y
+    did_activate = False
+    for d_x, d_y in ((0,1),(0,-1),(1,0),(-1,0)):
+      try:
+        tile = self.engine.game_map.tiles[x+d_x,y+d_y]
+        if tile['tile_class'] == 'door' and tile['tile_subclass'] == 'open':
+          self.engine.game_map.tiles[x+d_x,y+d_y] = self.engine.game_map.tile_set.get_tile_type('door','closed')
+          did_activate = True
+          break
+      except IndexError:
+        pass
+    if not did_activate:
+      raise exceptions.Impossible("There's nothing to do here.")
+
 
 
 class MovementAction(ActionWithDirection):
@@ -152,7 +172,9 @@ class MovementAction(ActionWithDirection):
       # Destination is out of bounds.
       raise exceptions.Impossible('That way is blocked.')
     #if self.engine.game_map.tiles[dest_x, dest_y] == tile_types.door_closed:
-    if self.engine.game_map.tile_set.is_tile_class(self.engine.game_map.tiles[dest_x, dest_y], 'door', 'closed'):
+    #if self.engine.game_map.tile_set.is_tile_class(self.engine.game_map.tiles[dest_x, dest_y], 'door', 'closed'):
+    if self.engine.game_map.tiles[dest_x, dest_y]['tile_class'] == 'door' and \
+       self.engine.game_map.tiles[dest_x, dest_y]['tile_subclass'] == 'closed':
       self.engine.game_map.tiles[dest_x, dest_y] = self.engine.game_map.tile_set.get_tile_type('door','open')#tile_types.door_open
       return
     if not self.engine.game_map.tiles["walkable"][dest_x, dest_y]:
@@ -173,9 +195,27 @@ class BumpAction(ActionWithDirection):
 
 
 class TargetedRangedAttack(Action):
-  def __init__(self, entity, target):
-    super().__init__(self)
-    self.target = target
+  def __init__(self, entity, xy):
+    super().__init__(entity)
+    x, y = xy
+    print(f'({x},{y})')
+    self.target = entity.parent.get_actor_at_location(x, y)
 
   def perform(self):
-    pass
+    target = self.target
+    if not target:
+      raise exceptions.Impossible('Nothing to attack.')
+    print(f'{self.entity} is attacking {target}')
+    damage = self.entity.fighter.accuracy - target.fighter.defense
+    attack_desc = f'{self.entity.name.capitalize()} shoots {target.name}'
+    if self.entity is self.engine.player:
+      attack_color = color.player_atk
+    else:
+      attack_color = color.enemy_atk
+    if damage > 0:
+      self.engine.message_log.add_message(f'{attack_desc} for {damage} hit points.', attack_color)
+      target.fighter.hp -= damage
+      self.entity.fighter.after_ranged_damage(damage, target)
+      target.fighter.after_damaged(damage, self.entity)
+    else:
+      self.engine.message_log.add_message(f'{attack_desc} but does no damage.', attack_color)

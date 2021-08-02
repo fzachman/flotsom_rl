@@ -59,9 +59,9 @@ SHROUD = np.array((ord(' '), (255,255,255), (0,0,0)), dtype=graphic_dt)
 
 class TileSet:
   def __init__(self):
+    self.all_tile_types = []
     self.tile_classes = {'floor': {'basic': [],
-                                   'damaged': [],
-                                   'hall': []},
+                                   'damaged': []},
                          'wall': {'basic': [],
                                   'damaged': [],},
                          'door': {'open': [],
@@ -71,6 +71,20 @@ class TileSet:
                                           'triggers': [],
                                           'exit': []},
                           }
+
+  def copy(self):
+    tile_set = TileSet()
+    for tile_class, tile_subclasses in self.tile_classes.items():
+      for tile_subclass, tiles in tile_subclasses.items():
+        for tile in tiles:
+          tile_set.add_tile_type(tile_class, tile_subclass,
+                                 tile['walkable'],
+                                 tile['transparent'],
+                                 tile['dark'],
+                                 tile['dim'],
+                                 tile['light'],
+                                 tile['weight'])
+    return tile_set
 
   def is_tile_class(self, tile_type, tile_class, tile_subclass=None):
     """ Check to see if the passed in tile is part of a tile_class """
@@ -114,51 +128,51 @@ class TileSet:
     tile_subclasses = self.tile_classes.setdefault(tile_class, {})
     tile_types = tile_subclasses.setdefault(tile_subclass, [])
     tile_types.append(tile_type)
+    self.all_tile_types.append(tile_type)
 
 basic_tile_set = TileSet()
 basic_tile_set.add_tile_type(tile_class='floor', tile_subclass='basic',
                              walkable=True, transparent=True,
-                             dark=(ord(' '), (255,255,255), (30,50,50)),
-                             dim=(ord(' '), (255,255,255), (90,110,110)),
-                             light=(ord(' '), (255, 255, 255), (175, 210, 210)),
+                             dark=(ord(' '), (255,255,255), (50,50,50)),
+                             dim=(ord(' '), (255,255,255), (110,110,110)),
+                             light=(ord(' '), (255, 255, 255), (200, 200, 200)),
                              weight=10
                              )
 basic_tile_set.add_tile_type(tile_class='floor', tile_subclass='basic',
                              walkable=True, transparent=True,
-                             dark=(9617, (20,40,40), (30,50,50)),
-                             dim=(9617, (70,90,90), (90,110,110)),
-                             light=(9617, (155, 190, 190), (175, 210, 210)),
+                             dark=(9617, (40,40,40), (50,50,50)),
+                             dim=(9617, (90,90,90), (110,110,110)),
+                             light=(9617, (180, 180, 180), (200, 200, 200)),
                              weight=1
-                             )
-# TODO: Get rid of this
-basic_tile_set.add_tile_type(tile_class='floor', tile_subclass='hall',
-                             walkable = True, transparent = True,
-                             dark=(ord(' '), (255,255,255), (20,40,40)),
-                             dim=(ord(' '), (255,255,255), (80,100,100)),
-                             light=(ord(' '), (255, 255, 255), (165, 200, 200)),
-                             weight=10,
                              )
 
 basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='basic',
-                             walkable=True, transparent=False,
-                             dark=(ord(' '), (255,255,255),(20,30,30)),
-                             dim=(ord(' '), (255,255,255),(45,50,50)),
-                             light=(ord(' '), (255, 255, 255), (150, 160, 160)),
+                             walkable=False, transparent=False,
+                             dark=(ord(' '), (255,255,255),(30,30,30)),
+                             dim=(ord(' '), (255,255,255),(40,40,40)),
+                             light=(ord(' '), (255, 255, 255), (100, 100, 100)),
+                             weight=10,)
+
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='damaged',
+                             walkable=False, transparent=False,
+                             dark=(9617, (10,10,10),(40,40,40)),
+                             dim=(9617, (30,30,30),(50,50,50)),
+                             light=(9617, (70, 70, 70), (100, 100, 100)),
                              weight=10,)
 
 basic_tile_set.add_tile_type(tile_class='door',tile_subclass='open',
                              walkable = True, transparent = True,
-                             dark=(ord('_'), (90,90,90), (40,60,60)),
-                             dim=(ord('_'), (155,155,155), (90,110,110)),
-                             light=(ord('_'), (255, 255, 255), (175, 210, 210)),
-                             weight=10,
+                             dark=(ord('_'), (120,120,120), (70,70,70)),
+                             dim=(ord('_'), (185,185,185), (110,110,110)),
+                             light=(ord('_'), (255, 255, 255), (200, 200, 200)),
+                             weight=20,
                              )
 
 basic_tile_set.add_tile_type(tile_class='door',tile_subclass='closed',
                              walkable = False, transparent = False,
-                             dark=(ord('#'), (90,90,90), (40,60,60)),
-                             dim=(ord('#'), (155,155,155), (90,110,110)),
-                             light=(ord('#'), (255, 255, 255), (175, 210, 210)),
+                             dark=(ord('#'), (120,120,120), (70,70,70)),
+                             dim=(ord('#'), (185,185,185), (110,110,110)),
+                             light=(ord('#'), (255, 255, 255), (200, 200, 200)),
                              weight=10,
                              )
 
