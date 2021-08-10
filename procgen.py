@@ -123,9 +123,11 @@ def generate_dungeon(max_rooms,
                      room_max_size,
                      map_width,
                      map_height,
-                     engine):
+                     engine,
+                     tile_set):
+
   player = engine.player
-  dungeon = GameMap(engine, map_width, map_height, entities=[player])
+  dungeon = GameMap(engine, map_width, map_height, tile_set, entities=[player])
   rooms = []
 
   center_of_last_room = (0,0)
@@ -153,7 +155,10 @@ def generate_dungeon(max_rooms,
     # If there are no intersections then the room is valid.
 
     # Dig out this rooms inner area.
-    dungeon.tiles[new_room.inner] = tile_types.floor_room
+    for rx in range(new_room.x1, new_room.x2):
+      for ry in range(new_room.y1, new_room.y2):
+        dungeon.tiles[rx,ry] = tile_set.get_tile_type('floor', 'basic')
+    #dungeon.tiles[new_room.inner] = tile_types.floor_room
 
     if len(rooms) == 0:
       # The first room, where the player starts.
@@ -176,17 +181,17 @@ def generate_dungeon(max_rooms,
       first_wall = None
       last_wall = None
       for x, y in tunnel_between(rooms[-1].center, new_room.center):
-        if dungeon.tiles[x,y] == tile_types.wall:
+        if tile_set.is_tile_class(dungeon.tiles[x,y], 'wall'):# == tile_types.wall:
           if not first_wall:
             first_wall = (x,y)
           else:
             last_wall = (x,y)
-          dungeon.tiles[x, y] = tile_types.floor_hall
+          dungeon.tiles[x, y] = tile_set.get_tile_type('floor', 'hall')#tile_types.floor_hall
 
-      if first_wall and random.random() <= 0.5:
-        dungeon.tiles[first_wall[0],first_wall[1]] = tile_types.door_closed
-      if last_wall and random.random() <= 0.5:
-        dungeon.tiles[last_wall[0],last_wall[1]] = tile_types.door_closed
+      if first_wall:# and random.random() <= 0.5:
+        dungeon.tiles[first_wall[0],first_wall[1]] = tile_set.get_tile_type('door')#tile_types.door_closed
+      if last_wall:# and random.random() <= 0.5:
+        dungeon.tiles[last_wall[0],last_wall[1]] = tile_set.get_tile_type('door')#tile_types.door_closed
 
       center_of_last_room = new_room.center
 
@@ -195,7 +200,7 @@ def generate_dungeon(max_rooms,
     # Finally, append the new room to the list.
     rooms.append(new_room)
 
-  dungeon.tiles[center_of_last_room] = tile_types.down_stairs
+  dungeon.tiles[center_of_last_room] = tile_set.get_tile_type('interactable', 'exit')#tile_types.down_stairs
   dungeon.downstairs_location = center_of_last_room
 
 

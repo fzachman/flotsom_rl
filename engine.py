@@ -17,6 +17,7 @@ class Engine:
     self.message_log = MessageLog()
     self.mouse_location = (0,0)
     self.player = player
+    self.time_to_orbit = 4
 
   def handle_enemy_turns(self):
     for entity in set(self.game_map.actors) - {self.player}:
@@ -31,19 +32,45 @@ class Engine:
     self.game_map.visible[:] = compute_fov(
       self.game_map.tiles['transparent'],
       (self.player.x, self.player.y),
-      radius=5,
+      radius=self.player.visibility,
       algorithm=tcod.FOV_BASIC
     )
-    self.game_map.dim[:] = compute_fov(
-      self.game_map.tiles['transparent'],
-      (self.player.x, self.player.y),
-      radius=8,
-      algorithm=tcod.FOV_BASIC
-    )
+    #self.game_map.dim[:] = compute_fov(
+    #  self.game_map.tiles['transparent'],
+    #  (self.player.x, self.player.y),
+    #  radius=8,
+    #  algorithm=tcod.FOV_BASIC
+    #)
 
     # If a tile is visible, it should be added to explored
-    self.game_map.explored |= self.game_map.visible
-    self.game_map.explored |= self.game_map.dim
+    #self.game_map.explored |= self.game_map.visible
+    #self.game_map.explored |= self.game_map.dim
+
+  def update_light_levels(self):
+    """ Create our light map for all static light entities """
+    self.game_map.light_levels[:] = 1
+    for light in self.game_map.lights:
+      if light == self.player:
+        light_walls = True
+      else:
+        light_walls = self.game_map.visible[light.x][light.y]
+      coords = self.game_map.get_coords_in_radius(light.x, light.y, light.light_source.radius)
+      light_fov = compute_fov(
+        self.game_map.tiles['transparent'],
+        (light.x, light.y),
+        radius=light.light_source.radius,
+        algorithm=tcod.FOV_BASIC,
+        light_walls=light_walls
+      )
+      for x, y in coords:
+        if light_fov[x][y]:
+          distance = light.distance(x, y)
+          brightness_diff = distance / (light.light_source.radius+2)
+          if brightness_diff < self.game_map.light_levels[x][y]:
+            self.game_map.light_levels[x][y] = brightness_diff
+
+    explored = (self.game_map.light_levels < 1) & self.game_map.visible
+    self.game_map.explored |= explored
 
   def update_vacuum(self):
     """ Mark tiles affected by vacuum sources """
@@ -59,6 +86,24 @@ class Engine:
       #  self.game_map.vacuum[x,y] = True
     self.game_map.vacuum_tiles = vacuum_tiles
 
+    for actor in self.game_map.actors:
+      if (actor.x,actor.y) in vacuum_tiles:
+        actor.lungs.breath()
+
+  def orbit(self):
+    # ToDo: Update this to have a map wide array of star tiles that shift so
+    # starts passing behind objects pop out the other side properly.
+    self.time_to_orbit -= 1
+    if self.time_to_orbit <= 0:
+      tiles = self.game_map.tiles
+      for x in range(len(tiles)-1, 0, -1):
+        for y in range(0, len(tiles[0])-1):
+          if tiles[x][y]['tile_class'] == 'space':
+            if self.game_map.in_bounds(x-1, y) and tiles[x-1][y]['tile_class'] == 'space':
+              tiles[x][y] = tiles[x-1][y]
+            else:
+              tiles[x][y] = self.game_map.tile_set.get_tile_type('space')
+      self.time_to_orbit = 4
 
   def _vacuum(self, room, vacuumed):
     """shlorp shlorp!"""
@@ -88,7 +133,16 @@ class Engine:
     render_functions.render_bar(console=console,
                                 current_value=self.player.fighter.hp,
                                 maximum_value=self.player.fighter.max_hp,
-                                total_width=20)
+                                total_width=20,
+                                text='HP',
+                                bar_number=0)
+
+    render_functions.render_bar(console=console,
+                                current_value=self.player.lungs.current_o2,
+                                maximum_value=self.player.lungs.max_o2,
+                                total_width=20,
+                                text='Oxygen',
+                                bar_number=1)
 
     render_functions.render_dungeon_level(console=console,
                                           dungeon_level=self.game_world.current_floor,

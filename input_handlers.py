@@ -127,7 +127,9 @@ class EventHandler(BaseEventHandler):
 
     self.engine.handle_enemy_turns()
     self.engine.update_fov()
+    self.engine.update_light_levels()
     self.engine.update_vacuum()
+    self.engine.orbit()
     return True
 
   def ev_mousemotion(self, event):
@@ -291,13 +293,21 @@ class InventoryEventHandler(AskUserEventHandler):
   What happens then depends on the subclass."""
   TITLE = '<missing title>'
 
+  def __init__(self, engine, filter_function=lambda x: True):
+    super().__init__(engine)
+    self.filter_function = filter_function
+    self.filtered_items = []
+    for item in self.engine.player.inventory.items:
+      if self.filter_function(item):
+        self.filtered_items.append(item)
+
   def on_render(self, console):
     """Render an inventory menu, which displays the items in the inventory, and the letter to select them.
     Will move to a different position based on where the player is located, so the player can always see where
     they are.
     """
     super().on_render(console)
-    number_of_items_in_inventory = len(self.engine.player.inventory.items)
+    number_of_items_in_inventory = len(self.filtered_items)#len(self.engine.player.inventory.items)
 
     height = self.engine.game_world.viewport_height#number_of_items_in_inventory + 2
 
@@ -330,7 +340,7 @@ class InventoryEventHandler(AskUserEventHandler):
                        bg=(0,0,0))
 
     if number_of_items_in_inventory > 0:
-      for i, item in enumerate(self.engine.player.inventory.items):
+      for i, item in enumerate(self.filtered_items):#)self.engine.player.inventory.items):
         item_key = chr(ord('a') + i)
         is_equipped = self.engine.player.equipment.item_is_equipped(item)
         item_string = f'({item_key}) {item.name}'
@@ -355,8 +365,8 @@ class InventoryEventHandler(AskUserEventHandler):
       if slot.item:
         console.print(equip_x, equip_y, slot.slot_name)
         item_name = f'-{slot.item.name}'
-        if slot.item.equippable.max_energy_level > 0:
-          item_name = f'{item_name} ({slot.item.equippable.current_energy_level}/{slot.item.equippable.max_energy_level})'
+        if slot.item.powered:
+          item_name = f'{item_name} ({slot.item.powered.current_power}/{slot.item.powered.max_power})'
         console.print(equip_x, equip_y + 1, item_name)
         equip_y += 2
 
@@ -368,7 +378,7 @@ class InventoryEventHandler(AskUserEventHandler):
     if 0 <= index <= 26:
       # Did they push a letter between a and z
       try:
-        selected_item = player.inventory.items[index]
+        selected_item = self.filtered_items[index]#player.inventory.items[index]
       except IndexError:
         self.engine.message_log.add_message('Invalid entry.', color.invalid)
         return None
@@ -393,17 +403,23 @@ class InventoryActivateHandler(InventoryEventHandler):
     else:
       return None
 
-class InventoryEnergizeHandler(InventoryEventHandler):
+class InventoryRechargeHandler(InventoryEventHandler):
   """Handle energizing an inventory item."""
 
-  TITLE = 'Select an item to energize'
-  def __init__(self, engine, energizer):
-    super().__init__(engine)
-    self.energizer = energizer
+  TITLE = 'Recharge:'
+  def __init__(self, engine, battery):
+    def filter_powered(item):
+      if item.powered:
+        return True
+      else:
+        return False
+
+    super().__init__(engine, filter_powered)
+    self.battery = battery
 
   def on_item_selected(self, item):
     """Return the action for the selected item"""
-    return actions.EnergizeAction(self.engine.player, self.energizer, item)
+    return actions.RechargeAction(self.engine.player, self.battery, item)
 
 class InventoryDropHandler(InventoryEventHandler):
   """Handle dropping an inventory item"""

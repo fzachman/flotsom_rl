@@ -61,7 +61,7 @@ class Equipment(BaseComponent):
       if s.equipment_type == equipment_type and s.item is not None:
         return s.item
     return None
-    
+
   def item_is_equipped(self, item):
     for item_slot in self.item_slots:
       if item_slot.item == item:

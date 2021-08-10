@@ -4,7 +4,7 @@ import components.ai
 import components.inventory
 from components.base_component import BaseComponent
 from exceptions import Impossible
-from input_handlers import AreaRangedAttackHandler, SingleRangedAttackHandler, InventoryEnergizeHandler
+from input_handlers import AreaRangedAttackHandler, SingleRangedAttackHandler, InventoryRechargeHandler
 
 class Consumable(BaseComponent):
   def get_action(self, consumer):
@@ -112,10 +112,10 @@ class EnergyConsumable(Consumable):
     self.amount = amount
 
   def get_action(self, consumer):
-    return InventoryEnergizeHandler(self.engine, self)
+    return InventoryRechargeHandler(self.engine, self)
 
   def activate(self, action):
-    return InventoryEnergizeHandler(self.engine, self)
+    return InventoryRechargeHandler(self.engine, self)
 
 class LightningDamageConsumable(Consumable):
   def __init__(self, damage, maximum_range):

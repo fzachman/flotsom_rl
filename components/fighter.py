@@ -12,6 +12,7 @@ class Fighter(BaseComponent):
     self.base_power = base_power
     self.base_accuracy = base_accuracy
     self._shields = shields
+    self.damaged_by_player = False
 
   @property
   def hp(self):
@@ -101,8 +102,27 @@ class Fighter(BaseComponent):
 
     return amount_recovered
 
-  def take_damage(self, amount):
-    self.hp -= amount
+  def take_damage(self, amount, is_player_damage=True, ignores_shields=False):
+    amount = amount
+    # Apply any damage to shields first, unless this damage ignore shields, like suffocation
+    if not ignores_shields:
+      if self.parent.equipment:
+        for item_slot in self.parent.equipment.item_slots:
+          if item_slot.item and item_slot.item.equippable.shields > 0:
+            # Each shield item will have a powered component.  One point of power
+            # equals one point of shields.  Any extra damage above the shields on this
+            # item will be returned.  Apply all of it until we run out of damage or run
+            # out of items.
+            amount = item_slot.item.equippable.deplete(amount)
+          if amount <= 0:
+            break
+    if amount > 0:
+      self.hp -= amount
+
+    if is_player_damage:
+      # Don't reward XP for enemies that die solely from the environment
+      # or other entities
+      self.damaged_by_player = True
 
   def die(self):
     if self.engine.player is self.parent:
@@ -120,4 +140,6 @@ class Fighter(BaseComponent):
     self.parent.render_order = RenderOrder.CORPSE
 
     self.engine.message_log.add_message(death_message, death_message_color)
-    self.engine.player.level.add_xp(self.parent.level.xp_given)
+    if self.damaged_by_player:
+      # Only reward XP if the player damaged this entity at least once
+      self.engine.player.level.add_xp(self.parent.level.xp_given)

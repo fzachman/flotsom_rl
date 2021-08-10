@@ -1,6 +1,7 @@
 from components.base_component import BaseComponent
 from equipment_types import EquipmentType
 import exceptions
+import color
 
 class Equippable(BaseComponent):
 
@@ -8,8 +9,7 @@ class Equippable(BaseComponent):
                      power_bonus=0,
                      defense_bonus=0,
                      accuracy_bonus=0,
-                     max_shields=0,
-                     max_energy_level=0):
+                     provides_shields=False):
     """Some items require energy to work and require you install an energy cell in them.
     Efficiency is how many charges a single energy cell will provide. By default,
     a energized item will be found will full power."""
@@ -17,10 +17,7 @@ class Equippable(BaseComponent):
     self._power_bonus = power_bonus
     self._defense_bonus = defense_bonus
     self._accuracy_bonus = accuracy_bonus
-    self.max_shields = max_shields
-    self.current_shields = max_shields
-    self.max_energy_level = max_energy_level
-    self.current_energy_level = self.max_energy_level
+    self.provides_shields = provides_shields
 
     self._after_melee_damage_effects = []
     self._after_ranged_damage_effects = []
@@ -28,10 +25,9 @@ class Equippable(BaseComponent):
 
   @property
   def is_energized(self):
-    if self.max_energy_level > 0 and self.current_energy_level <= 0:
-      return False
-    # Items that don't require energy are always "energized"
-    return True
+    if self.parent.powered is None or self.parent.powered.current_power > 0:
+      return True
+    return False
 
   @property
   def power_bonus(self):
@@ -54,31 +50,23 @@ class Equippable(BaseComponent):
     else:
       return 0
 
-  def energize(self, energy_cell):
-    if self.max_energy_level == 0:
-      raise exceptions.Impossible('That item does not require energy.')
-    elif self.current_energy_level >= self.max_energy_level:
-      raise exceptions.Impossible('That item is already as maximum energy.')
+  @property
+  def shields(self):
+    if self.provides_shields and self.parent.powered:
+      return self.parent.powered.current_power
+    else:
+      return 0
 
-    self.current_energy_level += energy_cell.amount
-    if self.current_energy_level > self.max_energy_level:
-      self.current_energy_level = self.max_energy_level
-    self.current_shields += energy_cell.amount
-    if self.current_shields > self.max_shields:
-      self.current_shields = self.max_shields
-
-    energy_cell.consume()
+  @property
+  def max_shields(self):
+    if self.provides_shields and self.parent.powered:
+      return self.parent.powered.max_power
+    else:
+      return 0
 
   def deplete(self, amount=1):
-    over_depletion = 0
-    if self.current_energy_level > 0:
-      self.current_energy_level -= amount
-      if self.current_energy_level < 0:
-        overdepletion = abs(self.current_energy_level)
-        self.current_energy_level = 0
-    if self.current_energy_level == 0:
-      # Uh.....
-      self.parent.parent.parent.parent.engine.message_log.add_message(f'{self.parent.name} has run out of energy!')
+    if self.parent.powered:
+      over_depletion = self.parent.powered.deplete(amount)
     return over_depletion
 
   def add_after_melee_damage_effect(self, effect):
@@ -118,13 +106,11 @@ class Knife(Equippable):
 
 class PowerFist(Equippable):
   def __init__(self):
-    super().__init__(equipment_type=EquipmentType.MELEE_WEAPON, power_bonus=4,
-                     max_energy_level=10)
+    super().__init__(equipment_type=EquipmentType.MELEE_WEAPON, power_bonus=4)
 
 class Gun(Equippable):
   def __init__(self):
-    super().__init__(equipment_type=EquipmentType.RANGED_WEAPON, accuracy_bonus=1,
-                    max_energy_level=6)
+    super().__init__(equipment_type=EquipmentType.RANGED_WEAPON, accuracy_bonus=1)
 
 class SpacersSuit(Equippable):
   def __init__(self):
@@ -134,7 +120,6 @@ class ArmoredSpacersSuit(Equippable):
   def __init__(self):
     super().__init__(equipment_type=EquipmentType.OUTFIT, defense_bonus=3)
 
-class PoweredSpacersSuit(Equippable):
+class ShieldBelt(Equippable):
   def __init__(self):
-    super().__init__(equipment_type=EquipmentType.OUTFIT, defense_bonus=3,
-                    max_shields=20, max_energy_level=20)
+    super().__init__(equipment_type=EquipmentType.ACCESSORY, provides_shields=True)

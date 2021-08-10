@@ -2,6 +2,7 @@ import random
 import tcod
 import numpy as np
 import json
+import math
 
 import entity_factories
 from game_map import GameMap
@@ -22,10 +23,10 @@ max_monsters_by_floor = [
 ]
 
 item_chances = {
-  0: [(entity_factories.stimpack, 35),(entity_factories.energy_cell, 10)],
+  0: [(entity_factories.stimpack, 35),(entity_factories.energy_cell, 10), (entity_factories.light, 20)],
   2: [(entity_factories.neural_scrambler, 10),],
   4: [(entity_factories.laser_drone, 25),(entity_factories.power_fist, 5)],
-  6: [(entity_factories.grenade_fire, 25),(entity_factories.armored_spacer_suit, 15)],
+  6: [(entity_factories.grenade_fire, 25),],
 }
 
 enemy_chances = {
@@ -54,7 +55,7 @@ diagonal_directions = {
 }
 
 all_directions = list(cardinal_directions.values()) + list(diagonal_directions.values())
-card_directions = ((0,-1), (0,1), (-1,0), (1,0))
+#card_directions = ((0,-1), (0,1), (-1,0), (1,0))
 
 def get_max_value_for_floor(max_value_by_floor, floor):
   current_value = 0
@@ -161,7 +162,8 @@ def subdivide(x, y, width, height, num_times):
   return divisions
 
 
-def find_rooms(tiles):
+def find_rooms(dungeon):
+  tiles = dungeon.tiles
   processed = set()
   rooms = []
   for x in range(len(tiles)):
@@ -171,8 +173,19 @@ def find_rooms(tiles):
         processed.add(coord)
         if tiles[x,y]['tile_class'] in ('floor', 'space'):
           room_coords, wall_coords, exit_coords = flood_room(tiles, x, y)
-          room = Room(room_coords, wall_coords, exit_coords)
-          rooms.append(room)
+          # Nuke rooms that are nothing but space tiles
+          has_floors = False
+          for x, y in room_coords:
+            if tiles[x,y]['tile_class'] == 'floor':
+              has_floors = True
+              break
+          if not has_floors:
+            for x, y in room_coords:
+              tiles[x,y] = dungeon.tile_set.get_tile_type('wall', 'basic')
+          else:
+            room = Room(room_coords, wall_coords, exit_coords)
+            rooms.append(room)
+
           processed.update(room_coords)
           processed.update(exit_coords)
           processed.update(wall_coords)
@@ -187,7 +200,7 @@ def flood_room(tiles, x, y,processed=None, tile_classes=['floor','space']):
   walls = set()
   exits = set()
   processed.add((x,y))
-  for d_x,d_y in card_directions:
+  for d_x,d_y in cardinal_directions.values():
     t_x = x + d_x
     t_y = y + d_y
     if (t_x, t_y) not in processed:
@@ -209,7 +222,7 @@ def flood_room(tiles, x, y,processed=None, tile_classes=['floor','space']):
 def create_path_between(dungeon, tile_set, src_x, src_y, dest_x, dest_y):
   """ This will build an array where every tile that's walkable or a door
       (open doors are walkable but closed doors aren't) is a cost of 1,
-      and all walls are 999.  Pathfinding will avoid walls as long as possible,
+      and all walls are 500.  Pathfinding will avoid walls as long as possible,
       until the cost to go through a wall are so high it has no choice.
       Then we'll use that path to find any walls and build traversable spaces."""
   tile_classes = np.array(dungeon.tiles['tile_class'])
@@ -238,6 +251,7 @@ def create_path_between(dungeon, tile_set, src_x, src_y, dest_x, dest_y):
       last_room = path_room
 
     if path_room and path_room not in pathed_to:
+      # First time hitting this room.  Assume all connected rooms are accessible from here
       connected_rooms = path_room.get_all_connections()
       pathed_to.update(connected_rooms)
     elif dungeon.tiles[x,y]['tile_class'] == 'wall': # If this isn't a room, check to see if it's a wall
@@ -290,6 +304,7 @@ def create_path_between(dungeon, tile_set, src_x, src_y, dest_x, dest_y):
             for t_x,t_y in new_tunnel:
               dungeon.tiles[t_x,t_y] = tile_set.get_tile_type('floor','basic')
 
+            # Turn the newly formed tunnel into a bonafide room
             processed, walls, exits = flood_room(dungeon.tiles, previous_xy[0], previous_xy[1], tile_classes=['floor'])
             new_room = Room(processed, walls, exits)
             new_room.connect_if_able(last_room)
@@ -333,8 +348,11 @@ def generate_dungeon(engine,
     height = sector.height
 
     tile_size = brush_set.brush_size
+    # Make sure the mini-map we generate is evenly divisibly by our tile size.
+    # Leftover space will be filled with walls
     plan_width = width // (tile_size)
     plan_height = height // (tile_size)
+    # Here's the actual Wave Function Collapse call that creates our tile plan
     tile_plan = np.array(get_wfc(tiles=tiles, tile_size=tile_size, width=plan_width, height=plan_height))
     #print(tile_plan)
     print(f'Plan: ({plan_width}, {plan_height}), Rendered plan:  ({len(tile_plan[0])} {len(tile_plan)}), Sector: ({sector_x1},{sector_y1})({width},{height})')
@@ -342,6 +360,7 @@ def generate_dungeon(engine,
     rendered_width = len(tile_plan)
     rendered_height = len(tile_plan[0])
 
+    # Here we just put a wall around the whole sector.
     for x in range(rendered_width):
       tile_plan[x,0] = 0
       tile_plan[x, rendered_height - 1] = 0
@@ -349,9 +368,13 @@ def generate_dungeon(engine,
       tile_plan[0,y] = 0
       tile_plan[rendered_width - 1, y] = 0
 
+    # The tile_plan is just a bunch of values, either 0 (wall) or 255 (floor), which we will later
+    # use to generate the actual map.  But first lets look for things that look like doorways or
+    # hall ends and put a placeholder value for doors in.
     for x in range(rendered_width):
       for y in range(rendered_height):
         if 0 < x < rendered_width-1 and 0 < y < rendered_height-1 and tile_plan[x,y] == 255:
+          # This is a "floor" in bounds inside the outer wall we built
           #print(f'({x},{y})')
           # Check to see if this should be a doorway:
           if tile_plan[x-1,y] == 0 and tile_plan[x+1,y] == 0 and \
@@ -359,14 +382,14 @@ def generate_dungeon(engine,
             # possible vertical door.  Make sure at least one side
             # has open space so we're not filling hallways with doors
             if tile_plan[x-1,y-1] == 255 or tile_plan[x+1,y-1] == 255 or \
-               tile_plan[x+1,y+1] == 255 or tile_plan[x+1,y+1] == 255:
+               tile_plan[x+1,y+1] == 255 or tile_plan[x-1,y+1] == 255:
               try:
                 if tile_plan[x, y+2] == 0 or tile_plan[x,y-2] == 0:
                   # If there's a wall right after the floor, assume we're in a turning
                   # hallway or some other narrow space that doesn't need a door
                   continue
                 else:
-                  # Flag this is a vertical door
+                  # Flag this is a door
                   tile_plan[x,y] = 3
               except IndexError:
                 # If we're that close to the edge, don't bother with a door.
@@ -375,15 +398,26 @@ def generate_dungeon(engine,
                tile_plan[x-1,y] == 255 and tile_plan[x+1,y] == 255:
             # Possible horizontal door
             if tile_plan[x-1,y-1] == 255 or tile_plan[x+1,y-1] == 255 or \
-               tile_plan[x+1,y+1] == 255 or tile_plan[x+1,y+1] == 255:
+               tile_plan[x+1,y+1] == 255 or tile_plan[x-1,y+1] == 255:
               try:
                 if tile_plan[x+2,y] == 0 or tile_plan[x-2,y] == 0:
                   continue
                 else:
-                  # Flag this is a horizontal door
+                  # Flag this is a door
                   tile_plan[x,y] = 3
               except IndexError:
                 pass
+
+    if sector.is_destroyed:
+      print('Things are blowing up!')
+      # Might be stupid to do this after doing all the work above, but it probably gets better/more realistic results
+      hole_radius = (rendered_width < rendered_height and rendered_width // 2 or rendered_height // 2) - 4
+      center_x = rendered_width // 2
+      center_y = rendered_height // 2
+      for x in range(rendered_width):
+        for y in range(rendered_height):
+          if math.sqrt((center_x - x) ** 2 + (center_y - y) **2) <= hole_radius or random.random() <= .5:
+            tile_plan[x,y] = -1
 
     #print('\n'.join([''.join(str(c) for c in r) for r in tile_plan.tolist()]))
     for x in range(0,rendered_height):
@@ -442,7 +476,7 @@ def generate_dungeon(engine,
   ship.post_gen(dungeon.tiles)
 
   # Break the map up into rooms
-  rooms = find_rooms(dungeon.tiles)
+  rooms = find_rooms(dungeon)
   print(f'Found {len(rooms)} rooms!')
   delete_rooms = []
   for room in rooms:
@@ -487,7 +521,7 @@ def generate_dungeon(engine,
             except IndexError:
               pass
           if is_door_adjacent:
-            print('Skipping wall segment next to a door.')
+            #print('Skipping wall segment next to a door.')
             continue
 
           for d_x,d_y in ((1,0),(-1,0),(0,1),(0,-1)):
@@ -496,7 +530,7 @@ def generate_dungeon(engine,
 
             other_room = dungeon.room_lookup.get((t_x, t_y))
 
-            print(f'Checking other room at ({t_x},{t_y}) which is a {other_room} and is self? {other_room == room}')
+            #print(f'Checking other room at ({t_x},{t_y}) which is a {other_room} and is self? {other_room == room}')
             if other_room is not None and other_room != room:
               #print('Creating exit!')
               dungeon.tiles[wall_x,wall_y] = tile_set.get_tile_type('door', 'closed')

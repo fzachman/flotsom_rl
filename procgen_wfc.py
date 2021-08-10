@@ -7,7 +7,8 @@ import entity_factories
 from game_map import GameMap
 import tile_types
 from wfc import get_wfc, Tile, get_tile_sides
-from brushes import Brush, BrushSet
+from brushes import load_brushes
+from rooms import Room
 
 max_items_by_floor = [
  (1,1),
@@ -160,58 +161,6 @@ def subdivide(x, y, width, height, num_times):
     divisions.extend([side1, side2])
   return divisions
 
-class Room:
-  def __init__(self, coords, walls, exits):
-    self.coords = coords # Basically walkable tiles in this room, floors and space usually
-    self.walls = walls # Usefull if we have no exits to find a wall to place a door
-    self.min_x = 9999
-    self.max_x = 0
-    self.min_y = 9999
-    self.max_y = 0
-    for x, y in coords:
-      if x < self.min_x:
-        self.min_x = x
-      if x > self.max_x:
-        self.max_x = x
-      if y < self.min_y:
-        self.min_y = y
-      if y > self.max_y:
-        self.max_y = y
-
-    self.exits = exits
-    removed = set()
-    for x,y in self.exits:
-      if ((x+1,y) in self.coords and (x-1,y) in self.coords) or \
-         ((x,y-1) in self.coords and (x,y+1) in self.coords):
-        # If both tiles along one axis are part of this room, this is
-        # an internally connected door that doesn't lead to another room,
-        # so remove it as an exit.
-        removed.add((x,y))
-    self.exits.difference_update(removed)
-
-    self.connecting_rooms = set()
-    self.color = (random.randint(0,255),random.randint(0,255),random.randint(0,255))
-
-  @property
-  def width(self):
-    return self.max_x - self.min_x + 1
-
-  @property
-  def height(self):
-    return self.max_y - self.min_y + 1
-
-  def connect_if_able(self, other_room):
-    if len(self.exits.intersection(other_room.exits)) > 0:
-      self.connecting_rooms.add(other_room)
-      other_room.connecting_rooms.add(self)
-
-  def intersects(self, other_room):
-    if self.tiles.intersection(other_room.tiles):
-      return True
-    else:
-      return False
-
-
 
 def find_rooms(tiles):
   processed = set()
@@ -258,6 +207,102 @@ def flood_room(tiles, x, y,processed=None, tile_classes=['floor','space']):
         pass
   return processed, walls, exits
 
+def create_path_between(dungeon, tile_set, src_x, src_y, dest_x, dest_y):
+  """ This will build an array where every tile that's walkable or a door
+      (open doors are walkable but closed doors aren't) is a cost of 1,
+      and all walls are 999.  Pathfinding will avoid walls as long as possible,
+      until the cost to go through a wall are so high it has no choice.
+      Then we'll use that path to find any walls and build traversable spaces."""
+  tile_classes = np.array(dungeon.tiles['tile_class'])
+  space_weight = np.full((dungeon.width, dungeon.height), fill_value=999, dtype=int)
+  cost = np.select([tile_classes=='door', tile_classes=='floor',tile_classes=='space'],
+                   [np.ones((dungeon.width,dungeon.height),dtype=int),np.ones((dungeon.width,dungeon.height),dtype=int),space_weight],
+                   default=500)
+
+
+  graph = tcod.path.SimpleGraph(cost=cost, cardinal=2, diagonal=0)
+  pathfinder = tcod.path.Pathfinder(graph)
+  pathfinder.add_root((src_x, src_y)) # Start position
+  # We'll return every room we traverse through so we can ignore them in future
+  # pathing calls.  We'll also suck in all connected rooms
+  pathed_to = set([dungeon.room_lookup[(src_x, src_y)]])
+  # Compute a path to the destination
+  path = pathfinder.path_to((dest_x, dest_y)).tolist()
+  path = [(index[0], index[1]) for index in path]
+  #print(path)
+  last_room = None
+  new_tunnel = []
+  for i in range(len(path)):
+    x, y = path[i]
+    path_room = dungeon.room_lookup.get((x,y))
+    if path_room:
+      last_room = path_room
+
+    if path_room and path_room not in pathed_to:
+      connected_rooms = path_room.get_all_connections()
+      pathed_to.update(connected_rooms)
+    elif dungeon.tiles[x,y]['tile_class'] == 'wall': # If this isn't a room, check to see if it's a wall
+      # First check to see if this is just a 1 tile wide wall
+      previous_xy = path[i-1]
+      source_room = dungeon.room_lookup.get(previous_xy)
+      next_xy = path[i+1]
+      next_room = dungeon.room_lookup.get(next_xy)
+      if source_room is not None and next_room is not None:
+        # Simple, add a door between them and connect them.
+        print(f'Adding simple door at ({x},{y})')
+        dungeon.tiles[x,y] = tile_set.get_tile_type('door')
+        source_room.exits.add((x,y))
+        next_room.exits.add((x,y))
+        source_room.connect_if_able(next_room)
+      else:
+        # OK, deal with a longer tunnel.
+        if source_room:
+          # We're just starting our new tunnel
+          new_tunnel = [(x,y)]
+        elif next_room:
+          # This is the end of the tunnel
+          # First add the door at the start of the tunnel and add it to the
+          # last rooms exit
+          print(f'Processing tunnel {new_tunnel} that ends at ({x},{y})')
+          new_tunnel.reverse()
+          try:
+            first_exit_x, first_exit_y = new_tunnel.pop()
+          except IndexError:
+            print(f'Popped from empty list at ({x},{y})')
+            continue
+          print(f'Placing starting door at ({first_exit_x}, {first_exit_y})')
+          dungeon.tiles[first_exit_x, first_exit_y] = tile_set.get_tile_type('door')
+          last_room.exits.add((first_exit_x, first_exit_y))
+          if len(new_tunnel) == 0:
+            print(f'Short tunnel detected near ({first_exit_x},{first_exit_y})')
+            # We are only a 2 long "tunnel" one of which is now a door, so just add ourselves
+            # to the next room and connect the two rooms
+            dungeon.tiles[x,y] = tile_set.get_tile_type('floor','basic')
+            next_room.exits.add((first_exit_x, first_exit_y))
+            next_room.coords.add((x,y))
+            next_room.connect_if_able(last_room)
+          else:
+            # Create an actual tunnel
+            # Add this tile as an exit to the next room
+            print(f'Placing ending door at ({x}, {y})')
+            dungeon.tiles[x,y] = tile_set.get_tile_type('door')
+            next_room.exits.add((x,y))
+
+            for t_x,t_y in new_tunnel:
+              dungeon.tiles[t_x,t_y] = tile_set.get_tile_type('floor','basic')
+
+            processed, walls, exits = flood_room(dungeon.tiles, previous_xy[0], previous_xy[1], tile_classes=['floor'])
+            new_room = Room(processed, walls, exits)
+            new_room.connect_if_able(last_room)
+            new_room.connect_if_able(next_room)
+            pathed_to.add(new_room)
+            dungeon.add_room(new_room)
+
+
+        else:
+          new_tunnel.append((x,y))
+
+  return pathed_to
 
 
 def generate_dungeon(map_width,
@@ -273,21 +318,7 @@ def generate_dungeon(map_width,
   # LOAD BRUSHES, PAINT THE WORLD! #
   ##################################
   # If we're sticking with WFC, should this be in game_map.GameWorld?
-  brushes = {}
-  brush_sets = {}
-  with open('brushes.json', 'r') as f:
-    brush_data = json.loads(f.read())
-    for b in brush_data['brushes']:
-      brush = Brush(b['name'],b['size'],b['data'])
-      brushes[brush.name] = brush
-    for s in brush_data['brush_sets']:
-      brush_set = BrushSet(s['name'], s['brush_size'])
-      for b in s['brushes']:
-        brush = brushes.get(b['brush_name'])
-        if brush:
-          weight = b['weight']
-          brush_set.add_brush(brush, weight)
-      brush_sets[brush_set.name] = brush_set
+  brush_sets = load_brushes()
 
   # TODO: Move this code down into the loop to pull different looks per sector
   # should also have some sort of "ship type" object that stores available brush
@@ -350,7 +381,7 @@ def generate_dungeon(map_width,
                   # hallway or some other narrow space that doesn't need a door
                   continue
                 else:
-                  # Flag this is a vertical door
+                  # Flag this is a door
                   tile_plan[x,y] = 3
               except IndexError:
                 # If we're that close to the edge, don't bother with a door.
@@ -364,7 +395,7 @@ def generate_dungeon(map_width,
                 if tile_plan[x+2,y] == 0 or tile_plan[x-2,y] == 0:
                   continue
                 else:
-                  # Flag this is a horizontal door
+                  # Flag this is a door
                   tile_plan[x,y] = 3
               except IndexError:
                 pass
@@ -426,62 +457,79 @@ def generate_dungeon(map_width,
   print(f'Found {len(rooms)} rooms!')
   delete_rooms = []
   for room in rooms:
-    if (room.width == 1 or room.height == 1) and len(room.exits) == 0:
+    if (room.width == 1 or room.height == 1 or len(room.coords) <= 8) and len(room.exits) == 0:
       # Delete this room
       for x,y in room.coords:
         dungeon.tiles[x,y] = tile_set.get_tile_type('wall','basic')
       delete_rooms.append(room)
       #room.color = (0,0,0)
+    else:
+      for x,y in room.coords:
+        if tile_set.is_tile_class(dungeon.tiles[x,y], 'space'):
+          room.is_vacuum_source = True
+          break
   for room in delete_rooms:
     rooms.remove(room)
 
   dungeon.rooms = rooms
 
-  # Let's just see what that looks like
-  # Pick a corner for the player to start in
-  # This is ugly and should probably be optimized.  Maybe by sector.
-  corner = random.randint(1,4)
-  if corner == 1:
-    # start in upper left/(0,0):
-    x_range = range(0, map_width // 2)
-    y_range = range(0, map_height // 2)
-    exit_x_range = range(map_width - 1, map_width // 2, -1)
-    exit_y_range = range(map_height - 1, map_height // 2, -1)
-  elif corner == 2:
-    # upper right
-    x_range = range(map_width - 1, map_width // 2, -1)
-    y_range = range(0, map_height // 2)
-    exit_x_range = range(0, map_width // 2)
-    exit_y_range = range(map_height - 1, map_height // 2, -1)
-  elif corner == 3:
-    # lower right
-    x_range = range(map_width - 1, map_width // 2, -1)
-    y_range = range(map_height - 1, map_height // 2, -1)
-    exit_x_range = range(0, map_width // 2)
-    exit_y_range = range(0, map_height // 2)
-  else:
-    # lower left!
-    x_range = range(0, map_width // 2)
-    y_range = range(map_height - 1, map_height // 2, -1)
-    exit_x_range = range(map_width - 1, map_width // 2, -1)
-    exit_y_range = range(0, map_height // 2)
+  # Let's connect some rooms!
+  for room in rooms:
+    print('Checking room for exits....')
+    num_exits = len(room.exits)
+    if num_exits <= 1:
+      walls = list(room.walls)
+      random.shuffle(walls)
+      # If a room has an exit, add between 0 and 1 more
+      # If a room has no exits, add between 1 and 2
+      exits_needed = random.randint(1 - num_exits,2 - num_exits)
+      exits_added = 0
+      for wall in walls:
+        wall_x, wall_y = wall
+        for d_x,d_y in ((1,0),(-1,0),(0,1),(0,-1)):
+          t_x = wall_x + d_x
+          t_y = wall_y + d_y
+
+          # Prevent two doors next to each other
+          is_door_adjacent = False
+          for door_x,door_y in ((1,0),(-1,0),(0,1),(0,-1)):
+            if dungeon.tiles[t_x+door_x,t_y+door_y]['tile_class'] == 'door':
+              is_door_adjacent = True
+              break
+          other_room = dungeon.room_lookup.get((t_x, t_y))
+
+          print(f'Checking other room at ({t_x},{t_y}) which is a {other_room} and is self? {other_room == room} and is next to a door? {is_door_adjacent}')
+          if other_room is not None and other_room != room and not is_door_adjacent:
+            print('Creating exit!')
+            dungeon.tiles[wall_x,wall_y] = tile_set.get_tile_type('door', 'closed')
+            room.exits.add(wall)
+            print(f'Walls: {room.walls}, wall: {wall})')
+            room.walls.remove(wall)
+            other_room.exits.add(wall)
+            other_room.walls.remove(wall)
+            room.connect_if_able(other_room)
+            exits_added += 1
+        if exits_added >= exits_needed :
+          break
+
+  room_list = list(rooms)
+  fourths = len(room_list) // 4
+  starting_room = random.choice(rooms[:fourths])
+  starting_x, starting_y = random.choice(list(starting_room.coords))
+  player.place(starting_x,starting_y,dungeon)
+
+  end_room = random.choice(rooms[fourths * 3:])
+  end_x, end_y = random.choice(list(end_room.coords))
+  dungeon.tiles[end_x,end_y] = tile_set.get_tile_type('interactable', 'exit')
+  dungeon.downstairs_location = (end_x,end_y)
 
 
-  player_placed = False
-  while not player_placed:
-    x = random.choice(x_range)
-    y = random.choice(y_range)
-    if tile_set.is_tile_class(dungeon.tiles[x,y], 'floor'):
-      player.place(x,y,dungeon)
-      player_placed = True
 
-  exit_placed = False
-  while not exit_placed:
-    x = random.choice(exit_x_range)
-    y = random.choice(exit_y_range)
-    if tile_set.is_tile_class(dungeon.tiles[x,y], 'floor'):
-      dungeon.tiles[x,y] = tile_set.get_tile_type('interactable', 'exit')#tile_types.down_stairs
-      dungeon.downstairs_location = (x,y)
-      exit_placed = True
+  pathed_to = set([starting_room])
+  for room in rooms:
+    #print(f'{len(pathed_to)} rooms checked.')
+    if room not in pathed_to:
+      dest_x, dest_y = random.choice(list(room.coords))
+      pathed_to.update(create_path_between(dungeon, tile_set, starting_x, starting_y, dest_x, dest_y))
 
   return dungeon

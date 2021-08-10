@@ -45,6 +45,7 @@ def new_game():
   engine.game_world.generate_floor()
 
   engine.update_fov()
+  engine.update_light_levels()
   engine.update_vacuum()
 
   engine.message_log.add_message('Hello and welcome, adventurer, to yet another dungeon!', color.welcome_text)
@@ -56,6 +57,7 @@ def new_game():
   popgun = copy.deepcopy(entity_factories.popgun)
   neural_scrambler = copy.deepcopy(entity_factories.neural_scrambler)
   power_fist = copy.deepcopy(entity_factories.power_fist)
+  shield_belt = copy.deepcopy(entity_factories.shield_belt)
 
   power_fist.equippable.add_after_melee_damage_effect(Knockback(1))
   popgun.equippable.add_after_ranged_damage_effect(ChainLightning(1))
@@ -65,6 +67,7 @@ def new_game():
   popgun.parent = player.inventory
   neural_scrambler.parent = player.inventory
   power_fist.parent = player.inventory
+  shield_belt.parent = player.inventory
 
   player.inventory.items.append(knife)
   player.equipment.toggle_equip(knife, add_message=False)
@@ -75,6 +78,7 @@ def new_game():
   player.inventory.items.append(popgun)
   player.inventory.items.append(neural_scrambler)
   player.inventory.items.append(power_fist)
+  player.inventory.items.append(shield_belt)
 
 
   return engine
@@ -97,15 +101,15 @@ class MainMenu(input_handlers.BaseEventHandler):
     console.draw_semigraphics(background_image, 0, 0)
 
     console.print(
-      console.width // 2,
-      console.height // 2 - 4,
+      console.width // 3 * 2,
+      console.height // 5,
       "FlotsomRL",
       fg=color.menu_title,
       alignment=tcod.CENTER,
     )
     console.print(
-      console.width // 2,
-      console.height - 2,
+      console.width //3 * 2,
+      console.height // 5 + 1,
       "By Forest Zachman",
       fg=color.menu_title,
       alignment=tcod.CENTER,
@@ -116,8 +120,8 @@ class MainMenu(input_handlers.BaseEventHandler):
       ['[N] Play a new game', '[C] Continue last game', '[Q] Quit', '[B] Builder']
     ):
       console.print(
-        console.width // 2,
-        console.height // 2 - 2 + i,
+        console.width // 3*2,
+        console.height // 5 +2 + i,
         text.ljust(menu_width),
         fg=color.menu_text,
         bg=color.black,

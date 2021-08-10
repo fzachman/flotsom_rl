@@ -80,15 +80,15 @@ class EquipAction(Action):
   def perform(self):
     self.entity.equipment.toggle_equip(self.item)
 
-class EnergizeAction(Action):
-  def __init__(self, entity, energizer, item):
+class RechargeAction(Action):
+  def __init__(self, entity, battery, item):
     super().__init__(entity)
-    self.energizer = energizer
+    self.battery = battery
     self.item = item
 
   def perform(self):
-    if self.item.equippable:
-      self.item.equippable.energize(self.energizer)
+    if self.item.powered:
+      self.item.powered.recharge(self.battery)
     else:
       raise exceptions.Impossible('You cannot charge that item.')
 
@@ -139,7 +139,7 @@ class MeleeAction(ActionWithDirection):
       attack_color = color.enemy_atk
     if damage > 0:
       self.engine.message_log.add_message(f'{attack_desc} for {damage} hit points.', attack_color)
-      target.fighter.hp -= damage
+      target.fighter.take_damage(damage)
       self.entity.fighter.after_melee_damage(damage, target)
       target.fighter.after_damaged(damage, self.entity)
     else:
@@ -150,10 +150,10 @@ class ActivateAction(Action):
     x = self.entity.x
     y = self.entity.y
     did_activate = False
-    for d_x, d_y in ((0,1),(0,-1),(1,0),(-1,0)):
+    for d_x, d_y in ((0,1),(0,-1),(1,0),(-1,0),(1,1),(1,-1),(-1,-1),(-1,1)):
       try:
         tile = self.engine.game_map.tiles[x+d_x,y+d_y]
-        if tile['tile_class'] == 'door' and tile['tile_subclass'] == 'open':
+        if tile['tile_class'] == 'door' and tile['tile_subclass'] == 'open' and not self.engine.game_map.get_actor_at_location(x+d_x,y+d_y):
           self.engine.game_map.tiles[x+d_x,y+d_y] = self.engine.game_map.tile_set.get_tile_type('door','closed')
           did_activate = True
           break
@@ -214,7 +214,7 @@ class TargetedRangedAttack(Action):
       attack_color = color.enemy_atk
     if damage > 0:
       self.engine.message_log.add_message(f'{attack_desc} for {damage} hit points.', attack_color)
-      target.fighter.hp -= damage
+      target.fighter.take_damage(damage)
       self.entity.fighter.after_ranged_damage(damage, target)
       target.fighter.after_damaged(damage, self.entity)
     else:

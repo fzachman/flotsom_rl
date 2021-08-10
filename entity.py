@@ -1,6 +1,7 @@
 import copy
 import math
 from render_order import RenderOrder
+from components.ai import ChainedAI
 
 class Entity:
   """
@@ -14,7 +15,8 @@ class Entity:
                color = (255,255,255),
                name='<Unnamed>',
                blocks_movement=False,
-               render_order=RenderOrder.CORPSE):
+               render_order=RenderOrder.CORPSE,
+               light_source = None):
     self.x = x
     self.y = y
     self.char = char
@@ -22,6 +24,9 @@ class Entity:
     self.name = name
     self.blocks_movement = blocks_movement
     self.render_order = render_order
+    self.light_source = light_source
+    if light_source:
+      self.light_source.parent = self
 
     if parent:
       # If parent isn't provided now then it will be set later.
@@ -53,7 +58,7 @@ class Entity:
       gamemap.entities.add(self)
 
   def distance(self, x, y):
-    """Return the distnace between current entity and given coords."""
+    """Return the distance between current entity and given coords."""
     return math.sqrt((x - self.x) ** 2 + (y - self.y) **2)
 
   def move(self, dx, dy):
@@ -69,11 +74,15 @@ class Actor(Entity):
                char = '?',
                color = (255,255,255),
                name = '<Unnamed>',
+               visibility=40,
                ai_cls,
                equipment,
                fighter,
                inventory,
-               level):
+               level,
+               lungs,
+               lootable,
+               light_source=None):
     super().__init__(
       x=x,
       y=y,
@@ -82,9 +91,17 @@ class Actor(Entity):
       name=name,
       blocks_movement=True,
       render_order=RenderOrder.ACTOR,
+      light_source=light_source
     )
 
-    self.ai = ai_cls(self)
+
+    self.visibility = visibility
+
+    if type(ai_cls) == list:
+      ai = ChainedAI(self, ai_cls)
+    else:
+      ai = ai_cls(self)
+    self.ai = ai
 
     self.equipment = equipment
     self.equipment.parent = self
@@ -97,6 +114,12 @@ class Actor(Entity):
 
     self.level = level
     self.level.parent = self
+
+    self.lungs = lungs
+    self.lungs.parent = self
+
+    self.lootable = lootable
+    self.lootable.parent = self
 
   @property
   def is_alive(self):
@@ -111,7 +134,8 @@ class Item(Entity):
                color = (255,255,255),
                name = '<Unnamed>',
                consumable=None,
-               equippable=None):
+               equippable=None,
+               powered=None):
     super().__init__(
       x=x,
       y=y,
@@ -128,3 +152,33 @@ class Item(Entity):
     self.equippable = equippable
     if self.equippable:
       self.equippable.parent = self
+
+    self.powered = powered
+    if self.powered:
+      self.powered.parent = self
+
+class Container(Entity):
+  def __init__(self,
+               *,
+               x = 0,
+               y = 0,
+               char='?',
+               color= (255,255,255),
+               name = '<Container>',
+               lootable):
+    super().__init__(
+      x=x,
+      y=y,
+      char=char,
+      color=color,
+      name=name,
+      blocks_movement=True,
+      render_order=RenderOrder.DECORATION,
+    )
+    self.lootable = lootable
+    self.lootable.parent = self
+
+  def add_items(self, items):
+    if type(items) == Item:
+      items = [items]
+    self.items.extend(items)

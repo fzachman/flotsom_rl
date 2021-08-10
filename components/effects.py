@@ -1,5 +1,6 @@
 from enum import Enum, auto
 import random
+import color
 
 class Effect:
   def __init__(self, level):
@@ -44,7 +45,7 @@ class Knockback(Effect):
     for i in range(self.distance):
       new_x = target.x + mx
       new_y = target.y + my
-      print(f'Knockback({self.distance}) Source {triggerer}@({triggerer.x},{triggerer.y}), target: ({target.x},{target.y}), moving to: ({new_x},{new_y})')
+      #print(f'Knockback({self.distance}) Source {triggerer}@({triggerer.x},{triggerer.y}), target: ({target.x},{target.y}), moving to: ({new_x},{new_y})')
       if game_map.in_bounds(new_x, new_y) and \
          game_map.tiles[new_x, new_y]['walkable'] and \
          not game_map.get_blocking_entity_at_location(new_x, new_y):
@@ -52,7 +53,7 @@ class Knockback(Effect):
       else:
         # Once we hit something: wall/entity/edge of map, stop pushing
         break
-    game_map.engine.message_log.add_message(f'{target.name} is thrown back!')
+    game_map.engine.message_log.add_message(f'{target.name} is thrown back!', fg=color.status_effect_applied)
 
 class ChainLightning(Effect):
   """ Does Damage to all entities around the target """
@@ -77,7 +78,8 @@ class ChainLightning(Effect):
       actor = triggerer.gamemap.get_actor_at_location(x, y)
       if actor and actor != triggerer and actor.fighter:
         actor.fighter.take_damage(self.damage)
-        triggerer.gamemap.engine.message_log.add_message(f'Electricity leaps to {actor.name}, striking it for {self.damage} damage!', stack=False)
+        triggerer.gamemap.engine.message_log.add_message(f'Electricity leaps to {actor.name}, striking it for {self.damage} damage!',
+                                                          fg=color.status_effect_applied, stack=False)
 
 
 on_melee_damage_triggers = (Knockback, ChainLightning)

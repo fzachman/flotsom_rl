@@ -34,7 +34,6 @@ tile_dt = np.dtype(
     ('walkable', np.bool), # True if it can be walked over
     ('transparent', np.bool), # True if it doesn't block FOV
     ('dark', graphic_dt), # Graphics for when not in FOV
-    ('dim', graphic_dt),
     ("light", graphic_dt),  # Graphics for when the tile is in FOV.
     ('tile_class', np.unicode_, 16),
     ('tile_subclass', np.unicode_, 16),
@@ -81,7 +80,6 @@ class TileSet:
                                  tile['walkable'],
                                  tile['transparent'],
                                  tile['dark'],
-                                 tile['dim'],
                                  tile['light'],
                                  tile['weight'])
     return tile_set
@@ -121,10 +119,9 @@ class TileSet:
                     walkable,
                     transparent,
                     dark,
-                    dim,
                     light,
                     weight):
-    tile_type = np.array((walkable, transparent, dark, dim, light, tile_class,tile_subclass,weight), dtype=tile_dt)
+    tile_type = np.array((walkable, transparent, dark, light, tile_class,tile_subclass,weight), dtype=tile_dt)
     tile_subclasses = self.tile_classes.setdefault(tile_class, {})
     tile_types = tile_subclasses.setdefault(tile_subclass, [])
     tile_types.append(tile_type)
@@ -133,53 +130,46 @@ class TileSet:
 basic_tile_set = TileSet()
 basic_tile_set.add_tile_type(tile_class='floor', tile_subclass='basic',
                              walkable=True, transparent=True,
-                             dark=(ord(' '), (255,255,255), (50,50,50)),
-                             dim=(ord(' '), (255,255,255), (110,110,110)),
+                             dark=(ord(' '), (255,255,255), (30,30,30)),
                              light=(ord(' '), (255, 255, 255), (200, 200, 200)),
                              weight=10
                              )
 basic_tile_set.add_tile_type(tile_class='floor', tile_subclass='basic',
                              walkable=True, transparent=True,
-                             dark=(9617, (40,40,40), (50,50,50)),
-                             dim=(9617, (90,90,90), (110,110,110)),
+                             dark=(9617, (40,40,40), (30,30,30)),
                              light=(9617, (180, 180, 180), (200, 200, 200)),
                              weight=1
                              )
 
 basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='basic',
                              walkable=False, transparent=False,
-                             dark=(ord(' '), (255,255,255),(30,30,30)),
-                             dim=(ord(' '), (255,255,255),(40,40,40)),
+                             dark=(ord(' '), (255,255,255),(20,20,20)),
                              light=(ord(' '), (255, 255, 255), (100, 100, 100)),
                              weight=10,)
 
 basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='damaged',
                              walkable=False, transparent=False,
-                             dark=(9617, (10,10,10),(40,40,40)),
-                             dim=(9617, (30,30,30),(50,50,50)),
+                             dark=(9617, (10,10,10),(20,20,20)),
                              light=(9617, (70, 70, 70), (100, 100, 100)),
                              weight=10,)
 
 basic_tile_set.add_tile_type(tile_class='door',tile_subclass='open',
                              walkable = True, transparent = True,
-                             dark=(ord('_'), (120,120,120), (70,70,70)),
-                             dim=(ord('_'), (185,185,185), (110,110,110)),
+                             dark=(ord('_'), (70,70,70), (30,30,30)),
                              light=(ord('_'), (255, 255, 255), (200, 200, 200)),
                              weight=20,
                              )
 
 basic_tile_set.add_tile_type(tile_class='door',tile_subclass='closed',
                              walkable = False, transparent = False,
-                             dark=(ord('#'), (120,120,120), (70,70,70)),
-                             dim=(ord('#'), (185,185,185), (110,110,110)),
-                             light=(ord('#'), (255, 255, 255), (200, 200, 200)),
+                             dark=(ord('#'), (70,70,70), (30,30,30)),
+                             light=(ord('#'), (255, 255, 255), (190, 190, 190)),
                              weight=10,
                              )
 
 basic_tile_set.add_tile_type(tile_class='interactable',tile_subclass='exit',
                              walkable=True,transparent=True,
                              dark=(ord('>'), (0, 0, 50), (0,0,100)),
-                             dim=(ord('>'), (0, 0, 100), (50,50,150)),
                              light=(ord('>'), (255,255,255),(200,180,50)),
                              weight=10,
                              )
@@ -190,28 +180,24 @@ basic_tile_set.add_tile_type(tile_class='interactable',tile_subclass='exit',
 basic_tile_set.add_tile_type(tile_class='space', tile_subclass='basic',
                              walkable=True, transparent=True,
                              dark=(ord(' '), (0,0,0), (0,0,0)),
-                             dim=(ord(' '), (0,0,0), (0,0,0)),
                              light=(ord(' '), (0,0,0), (0,0,0)),
                              weight=40
                              )
 basic_tile_set.add_tile_type(tile_class='space', tile_subclass='basic',
                              walkable=True, transparent=True,
                              dark=(ord('.'), (50,50,50), (0,0,0)),
-                             dim=(ord('.'), (180,180,180), (0,0,0)),
                              light=(ord('.'), (180,180,180), (0,0,0)),
                              weight=5
                              )
 basic_tile_set.add_tile_type(tile_class='space', tile_subclass='basic',
                              walkable=True, transparent=True,
                              dark=(ord('.'), (80,80,80), (0,0,0)),
-                             dim=(ord('.'), (220,220,220), (0,0,0)),
                              light=(ord('.'), (220,220,220), (0,0,0)),
                              weight=2
                              )
 basic_tile_set.add_tile_type(tile_class='space', tile_subclass='basic',
                              walkable=True, transparent=True,
                              dark=(183, (50,50,50), (0,0,0)),
-                             dim=(183, (180,180,180), (0,0,0)),
                              light=(183, (180,180,180), (0,0,0)),
                              weight=5
                              )
@@ -219,7 +205,6 @@ basic_tile_set.add_tile_type(tile_class='space', tile_subclass='basic',
 basic_tile_set.add_tile_type(tile_class='space', tile_subclass='basic',
                              walkable=True, transparent=True,
                              dark=(183, (80,80,80), (0,0,0)),
-                             dim=(183, (220,220,220), (0,0,0)),
                              light=(183, (220,220,220), (0,0,0)),
                              weight=2
                              )
@@ -227,7 +212,6 @@ basic_tile_set.add_tile_type(tile_class='space', tile_subclass='basic',
 basic_tile_set.add_tile_type(tile_class='space', tile_subclass='basic',
                              walkable=True, transparent=True,
                              dark=(ord('*'), (80,80,80), (0,0,0)),
-                             dim=(ord('*'), (220,220,220), (0,0,0)),
                              light=(ord('*'), (220,220,220), (0,0,0)),
                              weight=1
                              )

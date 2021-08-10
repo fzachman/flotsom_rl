@@ -1,8 +1,9 @@
 import numpy as np
 import random
+import math
 from tcod.console import Console
 
-from entity import Actor, Item
+from entity import Actor, Item, Container
 import tile_types
 
 class GameMap:
@@ -14,7 +15,7 @@ class GameMap:
     self.tiles = np.full((width, height), fill_value=tile_set.get_tile_type('wall','basic'), order='F')
     #self.vacuum = np.full((width, height), fill_value=False, order="F")  # Tiles that are in vacuum
     self.visible = np.full((width, height), fill_value=False, order="F")  # Tiles the player can currently see
-    self.dim = np.full((width, height), fill_value=False, order="F")  # Tiles the player can currently see
+    self.light_levels = np.full((width, height), fill_value=1.0, order="F")  # Tiles the player can currently see
     self.explored = np.full((width, height), fill_value=False, order="F")  # Tiles the player has seen before
     self.downstairs_location = (0,0)
     self._rooms = []
@@ -43,6 +44,9 @@ class GameMap:
     new_rooms.append(new_room)
     self.rooms = new_rooms
 
+  def get_room_at_location(self, xy):
+    return self.room_lookup.get(xy)
+
   @property
   def gamemap(self):
     return self
@@ -56,6 +60,11 @@ class GameMap:
   @property
   def items(self):
     yield from(entity for entity in self.entities if isinstance(entity, Item))
+
+  @property
+  def lights(self):
+    yield from(entity for entity in self.entities if entity.light_source and entity.light_source.radius > 0)
+
 
   def reveal_map(self):
     self.explored = np.full((self.width, self.height), fill_value=True, order="F")
@@ -76,6 +85,15 @@ class GameMap:
   def in_bounds(self, x, y):
     """Return True if x and y in arinsde of the bounds of this map"""
     return 0 <= x < self.width and 0 <= y < self.height
+
+  def get_coords_in_radius(self, x, y, radius):
+    coords = []
+    for tx in range(x-radius, x+radius+1):
+      for ty in range(y-radius, y+radius+1):
+        if math.sqrt((x - tx) ** 2 + (y - ty) **2) <= radius and \
+              self.in_bounds(tx, ty):
+          coords.append((tx,ty))
+    return coords
 
   def get_viewport(self):
     x = self.engine.player.x
@@ -119,8 +137,6 @@ class GameMap:
     s_x = slice(o_x, e_x+1)
     s_y = slice(o_y,e_y+1)
     viewport_tiles    = self.tiles[s_x,s_y]#[o_x:e_x+1,o_y:e_y + 1]
-    #vacuumed          = self.vacuum[s_x,s_y]
-    viewport_dim      = self.dim[s_x,s_y]
     viewport_visible  = self.visible[s_x,s_y]
     viewport_explored = self.explored[s_x,s_y]
     #print(f'({o_x},{o_y}), ({e_x},{e_y})')
@@ -128,11 +144,54 @@ class GameMap:
     #print(f'Viewport Dim: ({len(viewport_dim)},{len(viewport_dim[0])})')
     #print(f'Viewport Visible: ({len(viewport_visible)},{len(viewport_visible[0])})')
     #print(f'Viewport Explored: ({len(viewport_explored)},{len(viewport_explored[0])})')
+    #console.tiles_rgb[0:self.engine.game_world.viewport_width, 0:self.engine.game_world.viewport_height] = np.select(
+    #    condlist=[viewport_visible, viewport_explored],
+    #    choicelist=[viewport_tiles["light"], viewport_tiles["dark"]],
+    #    default=tile_types.SHROUD
+  #  )
     console.tiles_rgb[0:self.engine.game_world.viewport_width, 0:self.engine.game_world.viewport_height] = np.select(
-        condlist=[viewport_visible, viewport_dim, viewport_explored],
-        choicelist=[viewport_tiles["light"], viewport_tiles['dim'], viewport_tiles["dark"]],
+        condlist=[viewport_explored],
+        choicelist=[viewport_tiles["dark"]],
         default=tile_types.SHROUD
     )
+
+    player = self.engine.player
+    # Add our player light to our light map
+    light_levels = self.light_levels.copy()
+    #coords = self.get_coords_in_radius(player.x, player.y, player.light_source.radius)
+    #light_levels[player.x][player.y] = 1.0
+    #for x, y in coords:
+    #  distance = player.distance(x, y)
+    #  brightness_diff = distance / (player.light_source.radius+2)
+    #  #print(f'Player: ({player.x},{player.y}).  Tile: ({x},{y}).  Distance: {distance}.  Brightness Diff: {brightness_diff}')
+    #  if brightness_diff < light_levels[x][y]:
+    #    light_levels[x][y] = brightness_diff
+
+    viewport_light_levels = light_levels[s_x,s_y]
+    visible_light_levels = np.select(condlist=[viewport_visible], choicelist=[viewport_light_levels], default=1)
+    # Try some more dynamic lighting
+    lit = np.where(visible_light_levels < 1.0)
+    #print(f'Player is at ({self.engine.player.x},{self.engine.player.y}).  These tile are lit: {lit}')
+    for i in range(len(lit[0])):
+      x, y = lit[0][i], lit[1][i]
+      brightness_diff = visible_light_levels[x][y]
+      #distance = self.engine.player.distance(x + o_x, y + o_y)
+      #brightness_diff = distance / (self.engine.player.visibility+2)
+      #print(f'({x},{y}) is lit, translated to ({x-o_x},{y-o_y}) in viewport.  Distance to player: {distance}.')
+      light_fg = viewport_tiles[x][y]['light']['fg']
+      light_bg = viewport_tiles[x][y]['light']['bg']
+      dark_fg = viewport_tiles[x][y]['dark']['fg']
+      dark_bg = viewport_tiles[x][y]['dark']['bg']
+      new_fg = []
+      new_bg = []
+      for j in range(0,3):
+        new_fg.append(light_fg[j] - int((light_fg[j] - dark_fg[j]) * brightness_diff))
+        new_bg.append(light_bg[j] - int((light_bg[j] - dark_bg[j]) * brightness_diff))
+      #print(f'Light fg:{light_fg}, bg:{light_bg}, Dark fg:{dark_fg}, bg{dark_bg}.  Multiplier: {brightness_diff}.  New fg:{new_fg}, bg:{new_bg}')
+      console.tiles_rgb['bg'][x,y] = tuple(new_bg)
+      console.tiles_rgb['fg'][x,y] = tuple(new_fg)
+
+
 
     for x,y in self.vacuum_tiles:
       if o_x <= x <= e_x and o_y <= y <= e_y and self.explored[x,y]:
@@ -180,7 +239,7 @@ class GameMap:
     )
 
     for entity in entities_sorted_for_rendering:
-      if self.visible[entity.x, entity.y] or self.dim[entity.x, entity.y]:
+      if self.visible[entity.x, entity.y] and light_levels[entity.x][entity.y] < 1:
         console.print(x=entity.x - o_x,
                       y=entity.y - o_y,
                       string=entity.char,

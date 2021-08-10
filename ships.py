@@ -34,7 +34,7 @@ class Ship:
     print(f'Tint: {tint}')
     for tile_type in tile_set.all_tile_types:
       if tile_type['tile_class'] != 'space':
-        for l in ('dark','dim','light'):
+        for l in ('dark','light'):
           old_c = tile_type[l]['bg']
           new_c = old_c[0] + tint[0], old_c[1] + tint[1], old_c[2] + tint[2]
           print(new_c)

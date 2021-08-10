@@ -1,5 +1,16 @@
-Maybe simplify sectors to eliminate subsectors and set exit points.  Instead just provide one or more
-exit points on each side and allow L shaped tunnels between two random exits?
+Different parts of ship:
+Medical/science - Add "glass" tiles to some rooms for labs/observation
+Engineering - facilities control, maybe auto door cards, maps, secret tunnels?  Maybe repurpose 1 tile wide halls as secret tunnels?
+Bridge/command?
+Living Quarters
+Hydroponics
+
+Different ship types:
+organic alien
+sphere "maze"
+
+Hexagon based ship? (Would one >- tile do it?)
+
 
 Add a "BreatherAI" for creatures that need air.
 
@@ -10,3 +21,11 @@ to move towards O2.  Otherwise, HostileEnemy.
 Allow you to "float" across space tiles.  Actor needs momentum (simple (dx,dy)) and a new Input Handler that moves them
 every turn.  Bounce off walls? Or maybe stick to walls, since magnet boots.  No other actions possible if floating.
 Means Breaches can actually be way more complicated, as you can cross them.
+
+Energy powered Jetpack accessories can let you fly across space tiles, not losing control.
+
+Space tiles will have their own animation timer that will shift all tiles along an axis, randomly generating new ones at the edge,
+so it looks like orbiting.
+
+Use an action point system where entities will just take a Tick action and activate when they accumulate enough ticks. Allows
+for variable speed entities.
