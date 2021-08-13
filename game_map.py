@@ -7,12 +7,13 @@ from entity import Actor, Item, Container
 import tile_types
 
 class GameMap:
-  def __init__(self, engine, width, height, tile_set, entities=()):
+  def __init__(self, engine, ship, entities=()):
     self.engine = engine
-    self.width, self.height = width, height
+    self.ship = ship
+    self.width, self.height = width, height = ship.width, ship.height
     self.entities = set(entities)
-    self.tile_set = tile_set
-    self.tiles = np.full((width, height), fill_value=tile_set.get_tile_type('wall','basic'), order='F')
+    self.tile_set = ship.tile_set
+    self.tiles = np.full((width, height), fill_value=self.tile_set.get_tile_type('wall','basic'), order='F')
     #self.vacuum = np.full((width, height), fill_value=False, order="F")  # Tiles that are in vacuum
     self.visible = np.full((width, height), fill_value=False, order="F")  # Tiles the player can currently see
     self.light_levels = np.full((width, height), fill_value=1.0, order="F")  # Tiles the player can currently see

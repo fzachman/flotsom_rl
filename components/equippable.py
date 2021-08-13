@@ -10,9 +10,9 @@ class Equippable(BaseComponent):
                      defense_bonus=0,
                      accuracy_bonus=0,
                      provides_shields=False):
-    """Some items require energy to work and require you install an energy cell in them.
-    Efficiency is how many charges a single energy cell will provide. By default,
-    a energized item will be found will full power."""
+    """If the parent item also has a 'powered' component, using this item may
+    deplete the power.  If this item provides shields, it provides shields equal
+    to it's 'powered' components current power."""
     self.equipment_type = equipment_type
     self._power_bonus = power_bonus
     self._defense_bonus = defense_bonus

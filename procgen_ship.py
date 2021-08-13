@@ -30,7 +30,8 @@ item_chances = {
 }
 
 enemy_chances = {
-  0: [(entity_factories.crazed_crewmate, 80)],
+  0: [(entity_factories.pirate_scavenger, 80), (entity_factories.pirate_enforcer, 20)],
+  2: [(entity_factories.pirate_sniper, 10)],
   3: [(entity_factories.xeno_scuttler, 15)],
   5: [(entity_factories.xeno_scuttler, 30)],
   7: [(entity_factories.xeno_scuttler, 60)],
@@ -323,7 +324,7 @@ def generate_dungeon(engine,
                      ship):
   player = engine.player
 
-  dungeon = GameMap(engine, ship.width, ship.height, ship.tile_set, entities=[player])
+  dungeon = GameMap(engine, ship, entities=[player])
   print(f'Dungeon size: ({len(dungeon.tiles)}, {len(dungeon.tiles[0])})')
 
   ship.pre_gen(dungeon.tiles)

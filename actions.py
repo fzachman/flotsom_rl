@@ -1,6 +1,7 @@
 import color
 import exceptions
 import tile_types
+import animations
 
 class Action:
   def __init__(self, entity):
@@ -131,6 +132,8 @@ class MeleeAction(ActionWithDirection):
     if not target:
       raise exceptions.Impossible('Nothing to attack.')
 
+    if self.engine.game_map.visible[self.entity.x, self.entity.y]:
+      self.engine.queue_animation(animations.MeleeAnimation(self.entity))
     damage = self.entity.fighter.power - target.fighter.defense
     attack_desc = f'{self.entity.name.capitalize()} attacks {target.name}'
     if self.entity is self.engine.player:
@@ -198,14 +201,18 @@ class TargetedRangedAttack(Action):
   def __init__(self, entity, xy):
     super().__init__(entity)
     x, y = xy
-    print(f'({x},{y})')
+    #print(f'({x},{y})')
     self.target = entity.parent.get_actor_at_location(x, y)
 
   def perform(self):
     target = self.target
     if not target:
       raise exceptions.Impossible('Nothing to attack.')
-    print(f'{self.entity} is attacking {target}')
+
+    if self.engine.game_map.visible[self.target.x, self.target.y]:
+      self.engine.queue_animation(animations.RangedAnimation(self.entity, target))
+
+    #print(f'{self.entity} is attacking {target}')
     damage = self.entity.fighter.accuracy - target.fighter.defense
     attack_desc = f'{self.entity.name.capitalize()} shoots {target.name}'
     if self.entity is self.engine.player:

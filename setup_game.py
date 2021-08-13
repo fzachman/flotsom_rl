@@ -129,6 +129,16 @@ class MainMenu(input_handlers.BaseEventHandler):
         bg_blend=tcod.BKGND_ALPHA(64),
       )
 
+    #for i in range(0,128):
+    #  y = console.height - 16 + (i // 20)
+    #  x = 1 + (i % 20)
+    #  console.ch[x,y] = i
+    #  console.tiles_rgb['fg'][x,y] = (255,255,255)
+
+    #for i,c in enumerate(('\u2550','\u2551','\u2554','\u2557','\u255a','\u255d','\u2560','\u2563','\u2566','\u2569','\u256c')):
+    #  console.ch[i+1, console.height-2] = ord(c)
+    #  console.tiles_rgb['fg'][i+1, console.height-2] = (255,255,255)
+
   def ev_keydown(self, event):
     if event.sym in (tcod.event.K_q, tcod.event.K_ESCAPE):
       raise SystemExit()

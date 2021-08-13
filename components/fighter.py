@@ -4,6 +4,8 @@ from input_handlers import GameOverEventHandler
 from render_order import RenderOrder
 from equipment_types import EquipmentType
 
+from animations import DamagedAnimation
+
 class Fighter(BaseComponent):
   def __init__(self, hp, base_defense, base_power, base_accuracy, shields=0):
     self.max_hp = hp
@@ -12,6 +14,7 @@ class Fighter(BaseComponent):
     self.base_power = base_power
     self.base_accuracy = base_accuracy
     self._shields = shields
+    self._max_shields = shields
     self.damaged_by_player = False
 
   @property
@@ -39,9 +42,16 @@ class Fighter(BaseComponent):
   @property
   def shields(self):
     if self.parent.equipment:
-      return self.parent.equipment.total_shields + self._shields
+      return self.parent.equipment.current_shields + self._shields
     else:
       return self._shields
+
+  @property
+  def max_shields(self):
+    if self.parent.equipment:
+      return self.parent.equipment.max_shields + self._max_shields
+    else:
+      return self._max_shields
 
   @property
   def defense_bonus(self):
@@ -80,6 +90,8 @@ class Fighter(BaseComponent):
           item_slot.item.equippable.after_ranged_damage(damage_dealt, target)
 
   def after_damaged(self, damage_taken, source):
+    if self.engine.game_map.visible[self.parent.x, self.parent.y]:
+      self.engine.queue_animation(DamagedAnimation(self.parent))
     equipment = self.parent.equipment
     if equipment:
       for item_slot in equipment.item_slots:

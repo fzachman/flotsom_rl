@@ -1,5 +1,8 @@
 import lzma
 import pickle
+import time
+
+from collections import deque
 
 import tcod
 from tcod.context import Context
@@ -17,15 +20,32 @@ class Engine:
     self.message_log = MessageLog()
     self.mouse_location = (0,0)
     self.player = player
-    self.time_to_orbit = 4
+    self.time_to_orbit = 1
+    self.last_update = time.time()
+
+    self.animation_queue = deque()
+    self.is_enemy_turn = False
+
+  def queue_animation(self, animation):
+    self.animation_queue.append(animation)
+
+  def dequeue_animation(self):
+    while len(self.animation_queue) > 0:
+      yield self.animation_queue.popleft()
 
   def handle_enemy_turns(self):
+    #if not self.is_enemy_turn:
+    #  return
     for entity in set(self.game_map.actors) - {self.player}:
       if entity.ai:
         try:
           entity.ai.perform()
         except exceptions.Impossible:
           pass # Ignore impossible actions from AI
+        yield 1
+
+    self.is_enemy_turn = False
+
 
   def update_fov(self):
     """ Recompute visible area for player POV """
@@ -86,15 +106,15 @@ class Engine:
       #  self.game_map.vacuum[x,y] = True
     self.game_map.vacuum_tiles = vacuum_tiles
 
+  def breath(self):
     for actor in self.game_map.actors:
-      if (actor.x,actor.y) in vacuum_tiles:
+      if (actor.x,actor.y) in self.game_map.vacuum_tiles:
         actor.lungs.breath()
 
   def orbit(self):
     # ToDo: Update this to have a map wide array of star tiles that shift so
     # starts passing behind objects pop out the other side properly.
-    self.time_to_orbit -= 1
-    if self.time_to_orbit <= 0:
+    if time.time() - self.last_update >= 1:
       tiles = self.game_map.tiles
       for x in range(len(tiles)-1, 0, -1):
         for y in range(0, len(tiles[0])-1):
@@ -103,7 +123,7 @@ class Engine:
               tiles[x][y] = tiles[x-1][y]
             else:
               tiles[x][y] = self.game_map.tile_set.get_tile_type('space')
-      self.time_to_orbit = 4
+      self.last_update = time.time()
 
   def _vacuum(self, room, vacuumed):
     """shlorp shlorp!"""
@@ -144,11 +164,19 @@ class Engine:
                                 text='Oxygen',
                                 bar_number=1)
 
+    if self.player.fighter.max_shields > 0:
+      render_functions.render_bar(console=console,
+                                  current_value=self.player.fighter.shields,
+                                  maximum_value=self.player.fighter.max_shields,
+                                  total_width=20,
+                                  text='Shields',
+                                  bar_number=2)
+
     render_functions.render_dungeon_level(console=console,
                                           dungeon_level=self.game_world.current_floor,
-                                          location=(0,47))
+                                          location=(0,48))
 
-    console.print(x=0,y=48,string=f'({self.player.x},{self.player.y})')
+    console.print(x=0,y=49,string=f'({self.player.x},{self.player.y})')
 
     render_functions.render_names_at_mouse_location(console=console, x=21, y=44, engine=self)
 

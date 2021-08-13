@@ -14,11 +14,20 @@ def save_game(handler, filename):
     handler.engine.save_as(filename)
     print('Game saved.')
 
+
+def flush_animations(context, console, engine):
+  if len(engine.animation_queue) > 0:
+    for animation in engine.dequeue_animation():
+      for frame in animation.animate(console, engine):
+        context.present(frame)
+    context.present(console)
+
 def main():
   screen_width = 80
   screen_height = 50
 
   tileset = tcod.tileset.load_tilesheet('dejavu10x10_gs_tc.png', 32, 8, tcod.tileset.CHARMAP_TCOD)
+  #tileset = tcod.tileset.load_tilesheet('Bisasam_20x20_ascii_b.png', 16, 16, tcod.tileset.CHARMAP_CP437)
 
   handler = setup_game.MainMenu()
 
@@ -33,12 +42,31 @@ def main():
 
     try:
       while True:
+        if hasattr(handler, 'engine'):
+          if handler.engine.is_enemy_turn:
+            for enemy_turn in handler.engine.handle_enemy_turns():
+              handler.engine.update_light_levels()
+              try:
+                flush_animations(context, root_console, handler.engine)
+              except:
+                # Ignore animation errors for now.
+                pass
+
+          handler.engine.update_vacuum()
+          handler.engine.orbit()
+
         root_console.clear()
         handler.on_render(console=root_console)
         context.present(root_console)
 
+        #if hasattr(handler, 'engine'):
+        #  for animation in handler.engine.dequeue_animation():
+        #    for frame in animation.animate(root_console, handler.engine):
+        #      context.present(frame)
+        #  context.present(root_console)
+
         try:
-          for event in tcod.event.wait():
+          for event in tcod.event.wait(.1):
             context.convert_event(event)
             handler = handler.handle_events(event)
         except Exception:

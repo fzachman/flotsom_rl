@@ -1,4 +1,4 @@
-from components.ai import HostileEnemy, BaseAI, Breather
+from components.ai import HostileEnemy, Shooter, Sniper, BaseAI, Breather
 from components import consumable, equippable
 from components.equipment import Equipment
 from components.fighter import Fighter
@@ -21,20 +21,43 @@ player = Actor(char='@',
                fighter=Fighter(hp=30,base_defense=1,base_power=2,base_accuracy=1),
                inventory=Inventory(capacity=26),
                level=Level(level_up_base=200),
-               lungs=Lungs(max_o2=20,depletion_time=4),
+               lungs=Lungs(max_o2=20,depletion_time=10),
                lootable=Lootable(),
-               light_source=LightSource(radius=4))
+               light_source=LightSource(radius=5))
 
-crazed_crewmate = Actor(char='c',
-                        color=(63,127,63),
-                        name='Crazed Crewmate',
-                        ai_cls=[Breather, HostileEnemy],
-                        equipment=Equipment(),
-                        fighter=Fighter(hp=6,base_defense=0,base_power=4,base_accuracy=0),
-                        inventory=Inventory(capacity=0),
-                        level=Level(xp_given=35),
-                        lungs=Lungs(max_o2=10,depletion_time=4),
-                        lootable=Lootable())
+pirate_scavenger = Actor(char='p',
+                          color=(63,127,63),
+                          name='Pirate Scavenger',
+                          ai_cls=[Breather, HostileEnemy],
+                          equipment=Equipment(),
+                          fighter=Fighter(hp=6,base_defense=0,base_power=4,base_accuracy=0),
+                          inventory=Inventory(capacity=0),
+                          level=Level(xp_given=35),
+                          lungs=Lungs(max_o2=10,depletion_time=5),
+                          lootable=Lootable())
+
+pirate_enforcer = Actor(char='p',
+                          color=(127,95,63),
+                          name='Pirate Enforcer',
+                          ai_cls=[Breather, Shooter],
+                          equipment=Equipment(),
+                          fighter=Fighter(hp=3,base_defense=1,base_power=1,base_accuracy=3),
+                          inventory=Inventory(capacity=0),
+                          level=Level(xp_given=35),
+                          lungs=Lungs(max_o2=10,depletion_time=5),
+                          lootable=Lootable())
+
+
+pirate_sniper = Actor(char='p',
+                          color=(127,63,63),
+                          name='Pirate Sharpshooter',
+                          ai_cls=[Breather, Sniper],
+                          equipment=Equipment(),
+                          fighter=Fighter(hp=3,base_defense=0,base_power=1,base_accuracy=4),
+                          inventory=Inventory(capacity=0),
+                          level=Level(xp_given=35),
+                          lungs=Lungs(max_o2=10,depletion_time=5),
+                          lootable=Lootable())
 
 xeno_scuttler = Actor(char='s',
                       color=(0,127,0),
@@ -44,7 +67,7 @@ xeno_scuttler = Actor(char='s',
                       fighter=Fighter(hp=16,base_defense=1,base_power=5,base_accuracy=0),
                       inventory=Inventory(capacity=0),
                       level=Level(xp_given=100),
-                      lungs=Lungs(max_o2=40,depletion_time=4),
+                      lungs=Lungs(max_o2=20,depletion_time=20),
                       lootable=Lootable())
 
 ####################################################

@@ -31,7 +31,8 @@ class Ship:
     self.sectors = []
     self.tile_set = tile_set
     self.tint = tint = (0, random.randint(0,20), random.randint(0,20))
-    print(f'Tint: {tint}')
+    #print(f'Tint: {tint}')
+    # Slight palette shift to make each ship slightly different color
     for tile_type in tile_set.all_tile_types:
       if tile_type['tile_class'] != 'space':
         for l in ('dark','light'):
@@ -40,7 +41,6 @@ class Ship:
           print(new_c)
           tile_type[l]['bg'] = new_c
     self.protected_zones = []
-    # Can we do a palette swap/shift on our tiles?
     self.setup()
 
 

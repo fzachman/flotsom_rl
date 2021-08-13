@@ -26,3 +26,7 @@ bar_empty = (0x40, 0x10, 0x10)
 
 menu_title = (255,255,63)
 menu_text = white
+
+damage_default = (255,128,128)
+damage_electric = (128,128,255)
+damage_fire = (255,192,0)

@@ -43,11 +43,19 @@ class Equipment(BaseComponent):
 
 
   @property
-  def total_shields(self):
+  def current_shields(self):
     total_shields = 0
     for item_slot in self.item_slots:
-      if item_slot.item:
-        total_shields += item_slot.item.equippable.current_shields
+      if item_slot.item and item_slot.item.equippable.provides_shields and item_slot.item.powered:
+        total_shields += item_slot.item.powered.current_power
+    return total_shields
+
+  @property
+  def max_shields(self):
+    total_shields = 0
+    for item_slot in self.item_slots:
+      if item_slot.item and item_slot.item.equippable.provides_shields and item_slot.item.powered:
+        total_shields += item_slot.item.powered.max_power
     return total_shields
 
   def has_item_in_slot(self, equipment_type):

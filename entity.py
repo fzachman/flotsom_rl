@@ -1,7 +1,7 @@
 import copy
 import math
 from render_order import RenderOrder
-from components.ai import ChainedAI
+from components.ai import ChainedAI, Drifting
 
 class Entity:
   """
@@ -124,6 +124,12 @@ class Actor(Entity):
   @property
   def is_alive(self):
     return bool(self.ai)
+
+  def move(self, dx, dy):
+    super().move(dx, dy)
+    if self.gamemap.tiles[self.x, self.y]['tile_class'] == 'space' and \
+       not isinstance(self.ai, Drifting):
+      self.ai = Drifting(self, (dx, dy), self.ai)
 
 class Item(Entity):
   def __init__(self,

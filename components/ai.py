@@ -3,7 +3,7 @@ import random
 import numpy as np
 import tcod
 
-from actions import Action, BumpAction, MeleeAction, MovementAction, WaitAction, ActivateAction
+from actions import Action, BumpAction, MeleeAction, TargetedRangedAttack, MovementAction, WaitAction, ActivateAction
 
 class BaseAI(Action):
   def perform(self):
@@ -122,6 +122,38 @@ class HostileEnemy(BaseAI):
 
     return WaitAction(self.entity).perform()
 
+class RangedEnemy(BaseAI):
+  def __init__(self, entity, range):
+    super().__init__(entity)
+    self.range = range
+    self.path = []
+
+  def perform(self):
+    target = self.engine.player
+    dx = target.x - self.entity.x
+    dy = target.y - self.entity.y
+    distance = max(abs(dx), abs(dy)) # Chebyshev distance
+
+    if self.engine.game_map.visible[self.entity.x, self.entity.y]:
+      self.path = self.get_path_to(target.x, target.y)
+      if distance <= self.range:
+        return TargetedRangedAttack(self.entity, (target.x, target.y)).perform()
+
+
+    if self.path:
+      dest_x, dest_y = self.path.pop(0)
+      return MovementAction(self.entity, dest_x - self.entity.x, dest_y - self.entity.y).perform()
+
+    return WaitAction(self.entity).perform()
+
+class Shooter(RangedEnemy):
+  def __init__(self, entity):
+    super().__init__(entity, 10)
+
+class Sniper(RangedEnemy):
+  def __init__(self, entity):
+    super().__init__(entity, 20)
+
 class ChainedAI(BaseAI):
   def __init__(self, entity, ai_classes):
     super().__init__(entity)
@@ -144,7 +176,7 @@ class Breather(BaseAI):
     my_location = (self.entity.x, self.entity.y)
     if my_location in self.engine.game_map.vacuum_tiles:
       # On no, I'm in a vacuum!
-      print(f'I cannot breath! {my_location}')
+      #print(f'I cannot breath! {my_location}')
       my_room = self.engine.game_map.get_room_at_location(my_location)
       if my_room is None:
         # Probably standing in a doorway
@@ -155,36 +187,125 @@ class Breather(BaseAI):
             # This is the room we want to run from!
             break
       if not my_room:
-        print('I do not know what room I am in!')
+        #print('I do not know what room I am in!')
         return None
       if my_room.is_vacuum_source:
         # Leave this room!
-        print('The hole is in this room!  Run!')
+        #print('The hole is in this room!  Run!')
         for neighbor in my_room.connecting_rooms:
           if not neighbor.is_vacuum_source:
             n_x, n_y = list(neighbor.coords)[0]
             # Need the ability to open doors.
             path = self.get_path_to(n_x, n_y)
-            print(f'Path to {n_x}, {n_y}: {path}')
+            #print(f'Path to {n_x}, {n_y}: {path}')
             if path:
               dest_x, dest_y = path.pop(0)
-              print(f'Running to ({dest_x},{dest_y}) via ({dest_x - self.entity.x, dest_y - self.entity.y}')
+              #print(f'Running to ({dest_x},{dest_y}) via ({dest_x - self.entity.x, dest_y - self.entity.y}')
               return MovementAction(self.entity, dest_x - self.entity.x, dest_y - self.entity.y).perform()
       else:
         # Close some doors!
-        print('Who left the door open??')
+        #print('Who left the door open??')
         for e_x, e_y in my_room.exits:
           exit = self.engine.game_map.tiles[e_x, e_y]
           if exit['tile_class'] == 'door' and exit['tile_subclass'] == 'open':
             if self.is_next_to(e_x, e_y):
-              print('I will close it!')
+              #print('I will close it!')
               return ActivateAction(self.entity).perform()
             else:
               path = self.get_path_to(e_x, e_y)
-              print(f'Heading to door at ({e_x},{e_y}) via {path}')
+              #print(f'Heading to door at ({e_x},{e_y}) via {path}')
               if path:
-                print('Heading to the door!')
+                #print('Heading to the door!')
                 dest_x, dest_y = path.pop(0)
                 return MovementAction(self.entity, dest_x - self.entity.x, dest_y - self.entity.y).perform()
 
     return None
+
+
+class Drifting(BaseAI):
+  def __init__(self, entity, momentum, parent_ai):
+    super().__init__(entity)
+    self.momentum = momentum
+    self.parent_ai = parent_ai
+
+  def perform(self):
+    dx, dy = self.momentum
+    gamemap = self.entity.parent.gamemap
+
+    x = self.entity.x + dx
+    y = self.entity.y + dy
+
+    spaced = False
+    if not gamemap.in_bounds(x, y):
+      # If this entity drifts off the map, they're dead.
+      # For now we'll just die.  Later we probably want to clean up the entity
+      spaced = True
+    else:
+      # Check to see if we're hitting a wall and reverse our momentum
+      if dx == 0 or dy == 0:
+        # If we're going straight, just check if we're hitting a wall and bounce back
+        if self._is_blocked(x,y):
+          if dx != 0:
+            dx = dx < 0 and 1 or -1
+          elif dy != 0:
+            dy = dy < 0 and 1 or -1
+          self.momentum = (dx, dy)
+      else:
+        # If we're moving at an angle, we need to check to walls, not the diagonal one
+        # and we bounce of each one
+        if not gamemap.in_bounds(x, self.entity.y) or not gamemap.in_bounds(self.entity.x, y):
+          spaced = True
+        else:
+          if self._is_blocked(x, self.entity.y):
+            dx = dx < 0 and 1 or -1
+          if self._is_blocked(self.entity.x, y):
+            dy = dy < 0 and 1 or -1
+
+          x = self.entity.x + dx
+          y = self.entity.y + dy
+          if not gamemap.in_bounds(x,y):
+            spaced = True
+          elif self._is_blocked(x,y):
+            # If we're bouncing into *another* wall, we have issues.
+            # We'd like to just reverse our original direction since that's safe. But
+            # You can get caught in a loop this way, so first check to see if we can slide onto a floor
+            if gamemap.in_bounds(self.entity.x + dx, self.entity.y) and \
+               gamemap.tiles[self.entity.x + dx, self.entity.y]['tile_class'] == 'floor':
+              dy = 0
+            elif gamemap.in_bounds(self.entity.x, self.entity.y + dy) and \
+               gamemap.tiles[self.entity.x, self.entity.y + dy]['tile_class'] == 'floor':
+              dx = 0
+            else:
+              # No floor, just reverse.  If we're still caught in a death loop then may we just
+              # deserve to suffocate! :P
+              dx, dy = self.momentum
+              dx = dx < 0 and 1 or -1
+              dy = dy < 0 and 1 or -1
+
+          self.momentum = (dx, dy)
+
+    if spaced:
+      if self.entity == self.engine.player:
+        message = 'You drift off into space, never to be seen again...'
+      else:
+        message = f'{self.entity.name} drifts off into space, never to be seen again...'
+      self.engine.message_log.add_message(message)
+      self.entity.fighter.die()
+
+    else:
+      if gamemap.tiles[self.entity.x + dx, self.entity.y + dy]['tile_class'] == 'floor':
+        # We're are drifting on to a floor, resume normal operations after this action
+        self.entity.ai = self.parent_ai
+      if self.entity == self.engine.player:
+        return MovementAction(self.entity, dx, dy)
+      else:
+        return MovementAction(self.entity, dx, dy).perform()
+
+    return None
+
+  def _is_blocked(self, x, y):
+    gamemap = self.entity.parent.gamemap
+    if not gamemap.tiles[x, y]['walkable'] or gamemap.get_blocking_entity_at_location(x, y):
+      return True
+    else:
+      return False

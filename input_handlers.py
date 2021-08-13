@@ -11,6 +11,7 @@ from actions import (Action,
 import color
 import exceptions
 from equipment_types import EquipmentType
+from components.ai import Drifting
 
 MOVE_KEYS = {
   # Arrow keys.
@@ -100,6 +101,10 @@ class EventHandler(BaseEventHandler):
 
   def handle_events(self, event):
     """Handle events for input handlers with an engine."""
+    if not self.engine.player.is_alive and not isinstance(self, GameOverEventHandler):
+      # The player was killed sometime during or after the action.
+      return GameOverEventHandler(self.engine)
+
     action_or_state = self.dispatch(event)
     if isinstance(action_or_state, BaseEventHandler):
       return action_or_state
@@ -125,11 +130,13 @@ class EventHandler(BaseEventHandler):
       self.engine.message_log.add_message(exc.args[0], color.impossible)
       return False # Skip enemy turn on exception
 
-    self.engine.handle_enemy_turns()
+    #self.engine.handle_enemy_turns()
     self.engine.update_fov()
     self.engine.update_light_levels()
     self.engine.update_vacuum()
-    self.engine.orbit()
+    self.engine.breath()
+    self.engine.is_enemy_turn = True
+    #self.engine.orbit()
     return True
 
   def ev_mousemotion(self, event):
@@ -550,6 +557,8 @@ class MainGameEventHandler(EventHandler):
     modifier = event.mod
 
     player = self.engine.player
+    if isinstance(player.ai, Drifting):
+      return player.ai.perform()
 
     if key == tcod.event.K_PERIOD and modifier & (
       tcod.event.KMOD_LSHIFT | tcod.event.KMOD_RSHIFT

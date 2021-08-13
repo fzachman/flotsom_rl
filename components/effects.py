@@ -1,6 +1,7 @@
 from enum import Enum, auto
 import random
 import color
+import animations
 
 class Effect:
   def __init__(self, level):
@@ -77,9 +78,10 @@ class ChainLightning(Effect):
       y = target.y + dy
       actor = triggerer.gamemap.get_actor_at_location(x, y)
       if actor and actor != triggerer and actor.fighter:
-        actor.fighter.take_damage(self.damage)
         triggerer.gamemap.engine.message_log.add_message(f'Electricity leaps to {actor.name}, striking it for {self.damage} damage!',
                                                           fg=color.status_effect_applied, stack=False)
+        actor.fighter.take_damage(self.damage)
+        triggerer.gamemap.engine.queue_animation(animations.DamagedAnimation(actor, color.damage_electric))
 
 
 on_melee_damage_triggers = (Knockback, ChainLightning)
