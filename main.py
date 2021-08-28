@@ -40,8 +40,17 @@ def main():
   ) as context:
     root_console = tcod.Console(screen_width, screen_height, order="F")
 
+    should_render = True
     try:
       while True:
+        # We need to render the results of the last handler the user activated
+        if should_render:
+          root_console.clear()
+          handler.on_render(console=root_console)
+          context.present(root_console)
+          # But don't keep rendering it if we are just waking up to orbit stuff
+          should_render = False
+
         if hasattr(handler, 'engine'):
           if handler.engine.is_enemy_turn:
             for enemy_turn in handler.engine.handle_enemy_turns():
@@ -52,21 +61,21 @@ def main():
                 # Ignore animation errors for now.
                 pass
 
-          handler.engine.update_vacuum()
-          handler.engine.orbit()
+            handler.engine.update_vacuum()
+            should_render = True
 
-        root_console.clear()
-        handler.on_render(console=root_console)
-        context.present(root_console)
+          if handler.engine.orbit():
+            should_render = True
 
-        #if hasattr(handler, 'engine'):
-        #  for animation in handler.engine.dequeue_animation():
-        #    for frame in animation.animate(root_console, handler.engine):
-        #      context.present(frame)
-        #  context.present(root_console)
+        if should_render:
+          root_console.clear()
+          handler.on_render(console=root_console)
+          context.present(root_console)
+          should_render = False
 
         try:
           for event in tcod.event.wait(.1):
+            should_render = True
             context.convert_event(event)
             handler = handler.handle_events(event)
         except Exception:

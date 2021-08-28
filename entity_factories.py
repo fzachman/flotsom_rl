@@ -23,7 +23,7 @@ player = Actor(char='@',
                level=Level(level_up_base=200),
                lungs=Lungs(max_o2=20,depletion_time=10),
                lootable=Lootable(),
-               light_source=LightSource(radius=5))
+               light_source=LightSource(radius=15))
 
 pirate_scavenger = Actor(char='p',
                           color=(63,127,63),
@@ -149,13 +149,13 @@ shield_belt = Item(char='0',
 ####################################################
 #                  LIGHTS                          #
 ####################################################
-light = Entity(char='*', color=(255,255,255), name='', light_source=LightSource(radius=4))
+light = Entity(char=' ', color=(255,255,255), name='', light_source=LightSource(radius=2))
 
 
 ####################################################
 #                  CONTAINERS                      #
 ####################################################
-container_locker = Container(char='',
+container_locker = Container(char=' ',
                              color=(128,128,128),
                              name='Locker',
                              lootable=Lootable())

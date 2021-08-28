@@ -13,6 +13,7 @@ from entity import Entity
 import exceptions
 from message_log import MessageLog
 import render_functions
+import color
 
 class Engine:
 
@@ -69,7 +70,7 @@ class Engine:
   def update_light_levels(self):
     """ Create our light map for all static light entities """
     self.game_map.light_levels[:] = 1
-    for light in self.game_map.lights:
+    for light in [self.player]:#self.game_map.lights:
       if light == self.player:
         light_walls = True
       else:
@@ -114,6 +115,7 @@ class Engine:
   def orbit(self):
     # ToDo: Update this to have a map wide array of star tiles that shift so
     # starts passing behind objects pop out the other side properly.
+    did_orbit = False
     if time.time() - self.last_update >= 1:
       tiles = self.game_map.tiles
       for x in range(len(tiles)-1, 0, -1):
@@ -123,7 +125,9 @@ class Engine:
               tiles[x][y] = tiles[x-1][y]
             else:
               tiles[x][y] = self.game_map.tile_set.get_tile_type('space')
+      did_orbit = True
       self.last_update = time.time()
+    return did_orbit
 
   def _vacuum(self, room, vacuumed):
     """shlorp shlorp!"""
@@ -148,35 +152,113 @@ class Engine:
   def render(self, console):
     self.game_map.render(console)
 
-    self.message_log.render(console=console,x=21,y=45,width=40,height=5)
+    info_pane_x = self.game_world.viewport_width
+    info_pane_width = console.width - info_pane_x
+    info_pane_height = self.game_world.viewport_height
+    # This is debug info.  Remove it later
+    info_pane_title = f'({self.player.x},{self.player.y})'
+    render_functions.draw_window(console, info_pane_x, 0, info_pane_width, info_pane_height, info_pane_title)
+
+    sub_pane_x = info_pane_x + 1
+    sub_pane_width = info_pane_width - 2
+
+    bar_pane_x = sub_pane_x
+    bar_pane_y = 1
+    bar_pane_width = sub_pane_width
+    bar_pane_height = 5
+    render_functions.draw_window(console, bar_pane_x, bar_pane_y, bar_pane_width, bar_pane_height, '')
 
     render_functions.render_bar(console=console,
+                                x=bar_pane_x + 1,
+                                y=bar_pane_y + 1,
                                 current_value=self.player.fighter.hp,
                                 maximum_value=self.player.fighter.max_hp,
-                                total_width=20,
+                                total_width=bar_pane_width -2,
                                 text='HP',
                                 bar_number=0)
 
     render_functions.render_bar(console=console,
+                                x=bar_pane_x + 1,
+                                y=bar_pane_y + 2,
                                 current_value=self.player.lungs.current_o2,
                                 maximum_value=self.player.lungs.max_o2,
-                                total_width=20,
+                                total_width=bar_pane_width -2,
                                 text='Oxygen',
-                                bar_number=1)
+                                text_color=color.o2_bar_text,
+                                full_color=color.o2_bar_filled,
+                                empty_color=color.o2_bar_empty)
 
     if self.player.fighter.max_shields > 0:
       render_functions.render_bar(console=console,
+                                  x=bar_pane_x + 1,
+                                  y=bar_pane_y + 3,
                                   current_value=self.player.fighter.shields,
                                   maximum_value=self.player.fighter.max_shields,
-                                  total_width=20,
+                                  total_width=bar_pane_width -2,
                                   text='Shields',
-                                  bar_number=2)
+                                  text_color=color.shield_bar_text,
+                                  full_color=color.shield_bar_filled,
+                                  empty_color=color.shield_bar_empty)
 
+
+    char_pane_x =  sub_pane_x
+    char_pane_y = bar_pane_y + bar_pane_height
+    char_pane_width = sub_pane_width
+    char_pane_height = 9
+    render_functions.draw_window(console, char_pane_x, char_pane_y, char_pane_width, char_pane_height, '')
+
+    console.print(
+      x=char_pane_x + 1, y=char_pane_y + 1, string=f"Level: {self.player.level.current_level}"
+    )
+    console.print(
+      x=char_pane_x + 1, y=char_pane_y + 2, string=f"XP: {self.player.level.current_xp}"
+    )
+    console.print(
+      x=char_pane_x + 1,
+      y=char_pane_y + 3,
+      string=f"XP for next Level: {self.player.level.experience_to_next_level}",
+    )
+    fighter = self.player.fighter
+    console.print(
+      x=char_pane_x + 1, y=char_pane_y + 4, string=f"Melee: {fighter.power} ({fighter.base_power}+{fighter.power_bonus})"
+    )
+    console.print(
+      x=char_pane_x + 1, y=char_pane_y + 5, string=f"Ranged: {fighter.accuracy} ({fighter.base_accuracy}+{fighter.accuracy_bonus})"
+    )
+    console.print(
+      x=char_pane_x + 1, y=char_pane_y + 6, string=f"Defense: {fighter.defense} ({fighter.base_defense}+{fighter.defense_bonus})"
+    )
     render_functions.render_dungeon_level(console=console,
                                           dungeon_level=self.game_world.current_floor,
-                                          location=(0,48))
+                                          location=(char_pane_x + 1,char_pane_y + 7))
 
-    console.print(x=0,y=49,string=f'({self.player.x},{self.player.y})')
+    equip_pane_x = sub_pane_x
+    equip_pane_y = char_pane_y + char_pane_height
+    equip_pane_width = sub_pane_width
+    equip_pane_height = (len(self.player.equipment.item_slots) * 2) + 2
+    render_functions.draw_window(console, equip_pane_x, equip_pane_y, equip_pane_width, equip_pane_height, 'Current Equipment')
+
+    equip_y = equip_pane_y + 1
+    equip_x = equip_pane_x + 1
+    for slot in self.player.equipment.item_slots:
+      console.print(equip_x, equip_y, slot.slot_name)
+      if slot.item:
+        item_name = f'-{slot.item.name}'
+        if slot.item.powered:
+          item_name = f'{item_name} ({slot.item.powered.current_power}/{slot.item.powered.max_power})'
+      else:
+        item_name = '-(Empty)'
+      console.print(equip_x, equip_y + 1, item_name)
+      equip_y += 2
+
+
+    log_pane_x = sub_pane_x
+    log_pane_y = equip_pane_y + equip_pane_height
+    log_pane_width = sub_pane_width
+    log_pane_height = info_pane_height - log_pane_y - 1
+    render_functions.draw_window(console, log_pane_x, log_pane_y, log_pane_width, log_pane_height, '')
+
+    self.message_log.render(console=console,x=log_pane_x+1,y=log_pane_y+1,width=log_pane_width-2,height=log_pane_height-2)
 
     render_functions.render_names_at_mouse_location(console=console, x=21, y=44, engine=self)
 

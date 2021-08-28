@@ -25,8 +25,8 @@ def new_game():
   # The map can be bigger than the renderable area
   # This is the size of the viewport the player sees
   # of the map
-  viewport_width = 80
-  viewport_height = 43
+  viewport_width = 50#80
+  viewport_height = 50#43
 
   #room_max_size = 10
   #room_min_size = 6

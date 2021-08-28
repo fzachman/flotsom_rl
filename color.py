@@ -24,9 +24,20 @@ bar_text = white
 bar_filled = (0x0, 0x60, 0x0)
 bar_empty = (0x40, 0x10, 0x10)
 
+o2_bar_text = white
+o2_bar_filled = (0x40, 0x80, 0xF0)
+o2_bar_empty = (0x40, 0x10, 0x10)
+
+shield_bar_text = white
+shield_bar_filled = (0xB0, 0xA0, 0x0)
+shield_bar_empty = (0x40, 0x10, 0x10)
+
 menu_title = (255,255,63)
 menu_text = white
 
 damage_default = (255,128,128)
 damage_electric = (128,128,255)
 damage_fire = (255,192,0)
+
+window_border_bright = (225,225,255)
+window_border_dark = (5, 5, 105)

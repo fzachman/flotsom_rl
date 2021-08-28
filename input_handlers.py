@@ -1,6 +1,7 @@
 import tcod.event
 import math
 import os
+import textwrap
 
 import actions
 from actions import (Action,
@@ -10,6 +11,7 @@ from actions import (Action,
                      ActivateAction)
 import color
 import exceptions
+import render_functions
 from equipment_types import EquipmentType
 from components.ai import Drifting
 
@@ -227,22 +229,9 @@ class LevelUpEventHandler(AskUserEventHandler):
 
   def on_render(self, console):
     super().on_render(console)
-
-    if self.engine.player.x <= 30:
-      x = 40
-    else:
-      x = 0
-
-    console.draw_frame(
-          x=x,
-          y=0,
-          width=40,
-          height=9,
-          title=self.TITLE,
-          clear=True,
-          fg=(255, 255, 255),
-          bg=(0, 0, 0),
-      )
+    x = 0
+    y = 0
+    render_functions.draw_window(console, x, y, 40, 9, self.TITLE)
 
     console.print(x=x + 1, y=1, string="Congratulations! You level up!")
     console.print(x=x + 1, y=2, string="Select an attribute to increase.")
@@ -314,37 +303,16 @@ class InventoryEventHandler(AskUserEventHandler):
     they are.
     """
     super().on_render(console)
-    number_of_items_in_inventory = len(self.filtered_items)#len(self.engine.player.inventory.items)
-
-    height = self.engine.game_world.viewport_height#number_of_items_in_inventory + 2
+    number_of_items_in_inventory = len(self.filtered_items)
 
 
-    #if height <= 3:
-    #  height = 3
 
-    #if self.engine.player.x <= 30:
-    #  x = 40
-    #else:
-    #  x = 0
     x = 0
     y = 0
+    width = self.engine.game_world.viewport_width
+    height = self.engine.game_world.viewport_height
 
-    #width = len(self.TITLE) + 4
-    #if number_of_items_in_inventory > 0:
-    #  for i, item in enumerate(self.engine.player.inventory.items):
-    #    if len(item.name) + 10 > width:
-    #      width = len(item.name) + 10
-
-    width = int(self.engine.game_world.viewport_width / 3)
-
-    console.draw_frame(x = x,
-                       y = y,
-                       width=width,
-                       height=height,
-                       title=self.TITLE,
-                       clear=True,
-                       fg=(255,255,255),
-                       bg=(0,0,0))
+    render_functions.draw_window(console, x, y, width, height, self.TITLE)
 
     if number_of_items_in_inventory > 0:
       for i, item in enumerate(self.filtered_items):#)self.engine.player.inventory.items):
@@ -357,25 +325,6 @@ class InventoryEventHandler(AskUserEventHandler):
         console.print(x + 1, y + i + 1, item_string)
     else:
       console.print(x + 1, y+1, '(Empty)')
-
-    console.draw_frame(x=x+width,
-                       y=y,
-                       width=width,
-                       height=height,
-                       title="Current Equipment",
-                       clear=True,
-                       fg=(255,255,255),
-                       bg=(0,0,0))
-    equip_y = y + 2
-    equip_x = x + width + 1
-    for slot in self.engine.player.equipment.item_slots:
-      if slot.item:
-        console.print(equip_x, equip_y, slot.slot_name)
-        item_name = f'-{slot.item.name}'
-        if slot.item.powered:
-          item_name = f'{item_name} ({slot.item.powered.current_power}/{slot.item.powered.max_power})'
-        console.print(equip_x, equip_y + 1, item_name)
-        equip_y += 2
 
   def ev_keydown(self, event):
     player = self.engine.player
@@ -627,7 +576,35 @@ class GameOverEventHandler(EventHandler):
     raise exceptions.QuitWithoutSaving()
 
   def ev_keydown(self, event):
-    self.on_quit()
+    key = event.sym
+    if key == tcod.event.K_q:
+      self.on_quit()
+
+    return None
+
+  def on_render(self, console):
+    """ Render parent and dim result, then print message on top"""
+    #super().on_render(console)
+    console.tiles_rgb['fg'] //= 8
+    console.tiles_rgb['bg'] //= 8
+
+    popup_width = 30
+    message = 'You have died.  Press Q to quit.'
+    lines = textwrap.wrap(message, popup_width - 2)
+
+    popup_height = len(lines) + 2
+    x = (console.width // 2) - (popup_width // 2)
+    y = (console.height // 2) - (popup_height // 2)
+    render_functions.draw_window(console, x, y, popup_width, popup_height, '')
+    for i, line in enumerate(lines, start=1):
+      console.print(
+        console.width // 2,
+        y + i,
+        line,
+        fg=color.white,
+        bg=color.black,
+        alignment=tcod.CENTER,
+      )
 
 CURSOR_Y_KEYS = {
   tcod.event.K_UP: -1,
@@ -650,10 +627,11 @@ class HistoryViewer(EventHandler):
     log_console = tcod.Console(console.width - 6, console.height - 6)
 
     # Draw a frame with a custom banner title.
-    log_console.draw_frame(0, 0, log_console.width, log_console.height)
-    log_console.print_box(
-        0, 0, log_console.width, 1, "┤Message history├", alignment=tcod.CENTER
-    )
+    draw_window(console, 0, 0, log_console.width, log_console.height, 'Message History')
+    #log_console.draw_frame(0, 0, log_console.width, log_console.height)
+    #log_console.print_box(
+    #    0, 0, log_console.width, 1, "┤Message history├", alignment=tcod.CENTER
+    #)
 
     # Render the message log using the cursor parameter.
     self.engine.message_log.render_messages(

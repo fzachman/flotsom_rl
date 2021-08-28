@@ -3,7 +3,9 @@ import math
 from enum import Enum, auto
 
 import tile_types
+import tile_bit_codes
 from brushes import load_brushes
+from entity_factories import light
 
 brush_sets = load_brushes()
 
@@ -74,9 +76,24 @@ class Ship:
     # hall with airlocks,, etc...
     pass
 
-  def decorate(self, tiles):
+  def decorate(self, dungeon):
     # Add interesting stuff to each room based on its purpose.
-    pass
+    for x in range(1, dungeon.width-1):
+      for y in range(1, dungeon.height-1):
+        if dungeon.tiles[x, y]['tile_class'] == 'wall':
+
+          tiles = dungeon.tiles[x-1:x+2, y-1:y+2]
+          bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+          if bit_code != 255:
+            #print(f'{tiles} = {bit_code}')
+            subclass = tile_bit_codes.get_wall_subclass_for_bit_code(bit_code)
+            if subclass:
+              new_tile_type = self.tile_set.get_tile_type('wall', subclass)
+              if new_tile_type:
+                dungeon.tiles[x, y] = new_tile_type
+
+
+
 
 
 class HallShip(Ship):

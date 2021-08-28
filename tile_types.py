@@ -105,12 +105,16 @@ class TileSet:
       for k, v in tile_subclasses.items():
         options.extend(v)
 
-    chosen = random.choices(
-      options, weights=[o['weight'] for o in options], k=1
-    )
-    if chosen:
-      return chosen[0]
+    if options:
+      chosen = random.choices(
+        options, weights=[o['weight'] for o in options], k=1
+      )
+      if chosen:
+        return chosen[0]
+      else:
+        return None
     else:
+      print(f'No options for tile class {tile_class}:{tile_subclass}')
       return None
 
   def add_tile_type(self,
@@ -127,30 +131,114 @@ class TileSet:
     tile_types.append(tile_type)
     self.all_tile_types.append(tile_type)
 
+
+basic_floor_fg_dark = (255,255,255)
+basic_floor_bg_dark = (30,30,30)
+basic_floor_fg_light = (255,255,255)
+basic_floor_bg_light = (200,200,200)
+
+basic_wall_fg_dark = (135,135,145)
+basic_wall_bg_dark = (20,20,30)
+basic_wall_fg_light = (230,230,230)
+basic_wall_bg_light = (100,100,100)
+
 basic_tile_set = TileSet()
+##########
+# FLOORS #
+##########
 basic_tile_set.add_tile_type(tile_class='floor', tile_subclass='basic',
                              walkable=True, transparent=True,
-                             dark=(ord(' '), (255,255,255), (30,30,30)),
-                             light=(ord(' '), (255, 255, 255), (200, 200, 200)),
+                             dark=(ord(' '), basic_floor_fg_dark, basic_floor_bg_dark),
+                             light=(ord(' '), basic_floor_fg_light, basic_floor_bg_light),
                              weight=10
                              )
 basic_tile_set.add_tile_type(tile_class='floor', tile_subclass='basic',
                              walkable=True, transparent=True,
-                             dark=(9617, (40,40,40), (30,30,30)),
-                             light=(9617, (180, 180, 180), (200, 200, 200)),
+                             dark=(9617, (20,20,20), basic_floor_bg_dark),
+                             light=(9617, (180, 180, 180), basic_floor_bg_light),
                              weight=1
                              )
 
+#########
+# WALLS #
+#########
 basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='basic',
                              walkable=False, transparent=False,
-                             dark=(ord(' '), (255,255,255),(20,20,20)),
-                             light=(ord(' '), (255, 255, 255), (100, 100, 100)),
+                             dark=(ord(' '), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord(' '), basic_wall_fg_light, basic_wall_bg_light),
                              weight=10,)
 
 basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='damaged',
                              walkable=False, transparent=False,
                              dark=(9617, (10,10,10),(20,20,20)),
                              light=(9617, (70, 70, 70), (100, 100, 100)),
+                             weight=10,)
+
+###################
+# DECORATED WALLS #
+###################
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='h',
+                             walkable=False, transparent=False,
+                             dark=(ord('║'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('║'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='v',
+                             walkable=False, transparent=False,
+                             dark=(ord('═'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('═'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='dr',
+                             walkable=False, transparent=False,
+                             dark=(ord('╔'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╔'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='dl',
+                             walkable=False, transparent=False,
+                             dark=(ord('╗'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╗'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='ur',
+                             walkable=False, transparent=False,
+                             dark=(ord('╚'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╚'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='ul',
+                             walkable=False, transparent=False,
+                             dark=(ord('╝'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╝'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='tr',
+                             walkable=False, transparent=False,
+                             dark=(ord('╠'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╠'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='tl',
+                             walkable=False, transparent=False,
+                             dark=(ord('╣'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╣'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='td',
+                             walkable=False, transparent=False,
+                             dark=(ord('╦'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╦'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='tu',
+                             walkable=False, transparent=False,
+                             dark=(ord('╩'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╩'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='x',
+                             walkable=False, transparent=False,
+                             dark=(ord('╬'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('╬'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
+
+
+
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='glass',
+                             walkable=False, transparent=True,
+                             dark=(ord('G'), (0,0,0),(20,20,20)),
+                             light=(ord('G'), (255, 255, 255), (100, 100, 100)),
                              weight=10,)
 
 basic_tile_set.add_tile_type(tile_class='door',tile_subclass='open',

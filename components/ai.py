@@ -148,11 +148,11 @@ class RangedEnemy(BaseAI):
 
 class Shooter(RangedEnemy):
   def __init__(self, entity):
-    super().__init__(entity, 10)
+    super().__init__(entity, 6)
 
 class Sniper(RangedEnemy):
   def __init__(self, entity):
-    super().__init__(entity, 20)
+    super().__init__(entity, 10)
 
 class ChainedAI(BaseAI):
   def __init__(self, entity, ai_classes):

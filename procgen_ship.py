@@ -10,6 +10,7 @@ import tile_types
 from wfc import get_wfc, Tile, get_tile_sides
 from brushes import load_brushes
 from rooms import Room
+from ships import SectorPurpose
 
 max_items_by_floor = [
  (1,1),
@@ -23,7 +24,7 @@ max_monsters_by_floor = [
 ]
 
 item_chances = {
-  0: [(entity_factories.stimpack, 35),(entity_factories.energy_cell, 10), (entity_factories.light, 20)],
+  0: [(entity_factories.stimpack, 35),(entity_factories.energy_cell, 10)],
   2: [(entity_factories.neural_scrambler, 10),],
   4: [(entity_factories.laser_drone, 25),(entity_factories.power_fist, 5)],
   6: [(entity_factories.grenade_fire, 25),],
@@ -95,7 +96,6 @@ def place_entities(room, dungeon, floor_number):
 
   monsters = get_entities_at_random(enemy_chances, number_of_monsters, floor_number)
   items = get_entities_at_random(item_chances, number_of_items, floor_number)
-
   for entity in monsters + items:
     x,y = random.choice(list(room.coords))
 
@@ -576,12 +576,15 @@ def generate_dungeon(engine,
 
 
 
+  # this makes sure we can traverse to every room in the ship.
   pathed_to = set([starting_room])
   for room in rooms:
     #print(f'{len(pathed_to)} rooms checked.')
     if room not in pathed_to:
       dest_x, dest_y = random.choice(list(room.coords))
       pathed_to.update(create_path_between(dungeon, tile_set, starting_x, starting_y, dest_x, dest_y))
+
+  ship.decorate(dungeon)
 
   for room in list(rooms):
     place_entities(room, dungeon, engine.game_world.current_floor)

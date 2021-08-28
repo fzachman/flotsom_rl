@@ -1,7 +1,9 @@
 import numpy as np
 import random
 import math
+import tcod
 from tcod.console import Console
+from tcod.map import compute_fov
 
 from entity import Actor, Item, Container
 import tile_types
@@ -15,8 +17,8 @@ class GameMap:
     self.tile_set = ship.tile_set
     self.tiles = np.full((width, height), fill_value=self.tile_set.get_tile_type('wall','basic'), order='F')
     #self.vacuum = np.full((width, height), fill_value=False, order="F")  # Tiles that are in vacuum
-    self.visible = np.full((width, height), fill_value=False, order="F")  # Tiles the player can currently see
-    self.light_levels = np.full((width, height), fill_value=1.0, order="F")  # Tiles the player can currently see
+    self.visible = np.full((width, height), fill_value=False, order="F")  # Tiles currently in the players los
+    self.light_levels = np.full((width, height), fill_value=1.0, order="F")
     self.explored = np.full((width, height), fill_value=False, order="F")  # Tiles the player has seen before
     self.downstairs_location = (0,0)
     self._rooms = []
@@ -140,6 +142,7 @@ class GameMap:
     viewport_tiles    = self.tiles[s_x,s_y]#[o_x:e_x+1,o_y:e_y + 1]
     viewport_visible  = self.visible[s_x,s_y]
     viewport_explored = self.explored[s_x,s_y]
+
     #print(f'({o_x},{o_y}), ({e_x},{e_y})')
     #print(f'Viewport Tiles: ({len(viewport_tiles)},{len(viewport_tiles[0])})')
     #print(f'Viewport Dim: ({len(viewport_dim)},{len(viewport_dim[0])})')
@@ -172,7 +175,9 @@ class GameMap:
     visible_light_levels = np.select(condlist=[viewport_visible], choicelist=[viewport_light_levels], default=1)
     # Try some more dynamic lighting
     lit = np.where(visible_light_levels < 1.0)
+    #print(lit)
     #print(f'Player is at ({self.engine.player.x},{self.engine.player.y}).  These tile are lit: {lit}')
+
     for i in range(len(lit[0])):
       x, y = lit[0][i], lit[1][i]
       brightness_diff = visible_light_levels[x][y]

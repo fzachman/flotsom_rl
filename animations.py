@@ -67,7 +67,7 @@ class RangedAnimation(Animation):
     end_x = target.x
     end_y = target.y
     line = tcod.los.bresenham((start_x, start_y), (end_x, end_y)).tolist()[1:-1]
-    print(line)
+    #print(line)
     original = deque()
     for x,y in line:
       x -= viewport[0]
@@ -76,13 +76,13 @@ class RangedAnimation(Animation):
       if len(original) > 1:
         # Restore the previous tile
         xy, data = original.popleft()
-        print(f'Restoring original tile {xy} to {data}')
+        #print(f'Restoring original tile {xy} to {data}')
         self._restore_tile(console, xy, data)
 
       bg = console.tiles_rgb['bg'][x,y].copy()
       fg = console.tiles_rgb['fg'][x,y].copy()
       ch = console.ch[x,y]
-      print(f'Storing original tile ({x},{y}) as ({bg},{fg},{ch})')
+      #print(f'Storing original tile ({x},{y}) as ({bg},{fg},{ch})')
       original.append(((x,y),(bg,fg,ch)))
 
       console.tiles_rgb['bg'][x,y] = (192,192,255)
