@@ -116,7 +116,12 @@ class Fighter(BaseComponent):
 
   def take_damage(self, amount, is_player_damage=True, ignores_shields=False):
     amount = amount
-    # Apply any damage to shields first, unless this damage ignore shields, like suffocation
+    if is_player_damage:
+      # Don't reward XP for enemies that die solely from the environment
+      # or other entities
+      self.damaged_by_player = True
+
+    # Apply any damage to shields first, unless this damage ignore shields, like suffocation      
     if not ignores_shields:
       if self.parent.equipment:
         for item_slot in self.parent.equipment.item_slots:
@@ -131,10 +136,7 @@ class Fighter(BaseComponent):
     if amount > 0:
       self.hp -= amount
 
-    if is_player_damage:
-      # Don't reward XP for enemies that die solely from the environment
-      # or other entities
-      self.damaged_by_player = True
+
 
   def die(self):
     if self.engine.player is self.parent:

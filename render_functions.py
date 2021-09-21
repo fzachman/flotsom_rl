@@ -69,6 +69,7 @@ def draw_window(console, x, y, width, height, title):
       fg=color.window_border_bright,
       bg=(0, 0, 0),
   )
+
   r_bright, g_bright, b_bright = color.window_border_bright
   r_dark, g_dark, b_dark = color.window_border_dark
   r_step = (r_bright - r_dark) // 10

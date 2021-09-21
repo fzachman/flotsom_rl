@@ -48,7 +48,7 @@ def new_game():
   engine.update_light_levels()
   engine.update_vacuum()
 
-  engine.message_log.add_message('Hello and welcome, adventurer, to yet another dungeon!', color.welcome_text)
+  engine.message_log.add_message('You awake from cryosleep.  The ship is cold and dark.', color.welcome_text)
 
   from components.effects import Knockback, ChainLightning
 

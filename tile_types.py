@@ -232,7 +232,11 @@ basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='x',
                              dark=(ord('╬'), basic_wall_fg_dark,basic_wall_bg_dark),
                              light=(ord('╬'), basic_wall_fg_light, basic_wall_bg_light),
                              weight=10,)
-
+basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='pillar',
+                             walkable=False, transparent=False,
+                             dark=(ord('○'), basic_wall_fg_dark,basic_wall_bg_dark),
+                             light=(ord('○'), basic_wall_fg_light, basic_wall_bg_light),
+                             weight=10,)
 
 
 basic_tile_set.add_tile_type(tile_class='wall', tile_subclass='glass',

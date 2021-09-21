@@ -113,18 +113,18 @@ class Engine:
         actor.lungs.breath()
 
   def orbit(self):
-    # ToDo: Update this to have a map wide array of star tiles that shift so
-    # starts passing behind objects pop out the other side properly.
     did_orbit = False
     if time.time() - self.last_update >= 1:
+      space_tiles = self.game_map.space_tiles
+      wrap = space_tiles[0:1, 0:len(space_tiles[0])]
+      space_tiles[0:len(space_tiles)-1, 0:len(space_tiles[0])] = space_tiles[1:len(space_tiles), 0:len(space_tiles[1])]
+      space_tiles[len(space_tiles)-1:len(space_tiles), 0:len(space_tiles[0])] = wrap
+
       tiles = self.game_map.tiles
       for x in range(len(tiles)-1, 0, -1):
         for y in range(0, len(tiles[0])-1):
           if tiles[x][y]['tile_class'] == 'space':
-            if self.game_map.in_bounds(x-1, y) and tiles[x-1][y]['tile_class'] == 'space':
-              tiles[x][y] = tiles[x-1][y]
-            else:
-              tiles[x][y] = self.game_map.tile_set.get_tile_type('space')
+            tiles[x][y] = space_tiles[x][y]
       did_orbit = True
       self.last_update = time.time()
     return did_orbit
@@ -236,7 +236,7 @@ class Engine:
     equip_pane_y = char_pane_y + char_pane_height
     equip_pane_width = sub_pane_width
     equip_pane_height = (len(self.player.equipment.item_slots) * 2) + 2
-    render_functions.draw_window(console, equip_pane_x, equip_pane_y, equip_pane_width, equip_pane_height, 'Current Equipment')
+    render_functions.draw_window(console, equip_pane_x, equip_pane_y, equip_pane_width, equip_pane_height, 'Equipped')
 
     equip_y = equip_pane_y + 1
     equip_x = equip_pane_x + 1

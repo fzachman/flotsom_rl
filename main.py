@@ -26,9 +26,11 @@ def main():
   screen_width = 80
   screen_height = 50
 
-  tileset = tcod.tileset.load_tilesheet('dejavu10x10_gs_tc.png', 32, 8, tcod.tileset.CHARMAP_TCOD)
-  #tileset = tcod.tileset.load_tilesheet('Bisasam_20x20_ascii_b.png', 16, 16, tcod.tileset.CHARMAP_CP437)
-
+  #tileset = tcod.tileset.load_tilesheet('dejavu10x10_gs_tc.png', 32, 8, tcod.tileset.CHARMAP_TCOD)
+  #tileset = tcod.tileset.load_tilesheet('16x16_sb_ascii.png', 16, 16, tcod.tileset.CHARMAP_CP437)
+  cmap = tcod.tileset.CHARMAP_CP437.copy()
+  cmap.extend([9624, 9629,9622, 9626, 9623, 0,0,0,0,0,0,0,0,0,0,0])
+  tileset = tcod.tileset.load_tilesheet('16x16_sb_ascii_flotsom.png', 16, 17, cmap)
   handler = setup_game.MainMenu()
 
   with tcod.context.new_terminal(

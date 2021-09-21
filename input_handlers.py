@@ -11,6 +11,7 @@ from actions import (Action,
                      ActivateAction)
 import color
 import exceptions
+import ui
 import render_functions
 from equipment_types import EquipmentType
 from components.ai import Drifting
@@ -284,62 +285,99 @@ class LevelUpEventHandler(AskUserEventHandler):
     """
     return None
 
-class InventoryEventHandler(AskUserEventHandler):
+class BasicMenuHandler(AskUserEventHandler):
+  TITLE = '<missing title>'
+  def __init__(self, engine, options, x=0, y=0, height=None, width=None):
+    super().__init__(engine)
+    self.options = options
+    if not height:
+      height = len(self.options) + 2
+    if not width:
+      width = 20
+
+    if y + height > engine.game_world.viewport_height:
+      height = engine.game_world.viewport_height - y
+
+    self.menu = ui.BasicMenu(self.options, x, y, height, width, title=self.TITLE)
+
+  def on_item_selected(self):
+    return PopupMessage(MainGameEventHandler(self.engine), self.options[self.menu.cursor])
+
+  def ev_keydown(self, event):
+    key = event.sym
+
+    if key in (tcod.event.K_UP, tcod.event.K_KP_8):
+      self.menu.up()
+      return None
+    elif key in (tcod.event.K_DOWN, tcod.event.K_KP_2):
+      self.menu.down()
+      return None
+    elif key in CONFIRM_KEYS:
+      return self.on_item_selected()
+
+    elif key == tcod.event.K_ESCAPE:
+      return MainGameEventHandler(self.engine)
+
+  def ev_mousemotion(self, event):
+    self.menu.mouse_select(event.tile.x, event.tile.y)
+
+  def ev_mousebuttondown(self, event):
+    selected = self.menu.mouse_select(event.tile.x, event.tile.y)
+    if selected is not None:
+      return self.on_item_selected()
+
+  def ev_mousewheel(self, event):
+    if event.y > 0:
+      self.menu.up()
+    elif event.y < 0:
+      self.menu.down()
+
+  def on_render(self, console):
+    super().on_render(console)
+    self.menu.render(console)
+
+class InventoryEventHandler(BasicMenuHandler):
   """ This handler lets the user select an item.
   What happens then depends on the subclass."""
   TITLE = '<missing title>'
 
   def __init__(self, engine, filter_function=lambda x: True):
-    super().__init__(engine)
     self.filter_function = filter_function
     self.filtered_items = []
-    for item in self.engine.player.inventory.items:
+    for item in engine.player.inventory.items:
       if self.filter_function(item):
         self.filtered_items.append(item)
+    self.options = options = []
+
+    min_width = len(self.TITLE) + 6
+    for i in self.filtered_items:
+      is_equipped = engine.player.equipment.item_is_equipped(i)
+      item_name = i.name
+      if is_equipped:
+        item_name += ' (E)'
+      options.append(item_name)
+      if len(item_name) > min_width:
+        min_width = len(item_name)
+
+    super().__init__(engine, options, width=min_width + 2)
 
   def on_render(self, console):
-    """Render an inventory menu, which displays the items in the inventory, and the letter to select them.
-    Will move to a different position based on where the player is located, so the player can always see where
-    they are.
-    """
     super().on_render(console)
-    number_of_items_in_inventory = len(self.filtered_items)
 
+  #def ev_keydown(self, event):
+  #  player = self.engine.player
+  #  key = event.sym
+  #  index = key - tcod.event.K_a
 
-
-    x = 0
-    y = 0
-    width = self.engine.game_world.viewport_width
-    height = self.engine.game_world.viewport_height
-
-    render_functions.draw_window(console, x, y, width, height, self.TITLE)
-
-    if number_of_items_in_inventory > 0:
-      for i, item in enumerate(self.filtered_items):#)self.engine.player.inventory.items):
-        item_key = chr(ord('a') + i)
-        is_equipped = self.engine.player.equipment.item_is_equipped(item)
-        item_string = f'({item_key}) {item.name}'
-        if is_equipped:
-          item_string = f'{item_string} (E)'
-
-        console.print(x + 1, y + i + 1, item_string)
-    else:
-      console.print(x + 1, y+1, '(Empty)')
-
-  def ev_keydown(self, event):
-    player = self.engine.player
-    key = event.sym
-    index = key - tcod.event.K_a
-
-    if 0 <= index <= 26:
-      # Did they push a letter between a and z
-      try:
-        selected_item = self.filtered_items[index]#player.inventory.items[index]
-      except IndexError:
-        self.engine.message_log.add_message('Invalid entry.', color.invalid)
-        return None
-      return self.on_item_selected(selected_item)
-    return super().ev_keydown(event)
+  #  if 0 <= index <= 26:
+  #    # Did they push a letter between a and z
+  #    try:
+  #      selected_item = self.filtered_items[index]#player.inventory.items[index]
+  #    except IndexError:
+  #      self.engine.message_log.add_message('Invalid entry.', color.invalid)
+  #      return None
+  #    return self.on_item_selected(selected_item)
+  #  return super().ev_keydown(event)
 
   def on_item_selected(self, item):
     """Called when the user selectes a valid item."""
@@ -350,8 +388,9 @@ class InventoryActivateHandler(InventoryEventHandler):
 
   TITLE = 'Select an item to use'
 
-  def on_item_selected(self, item):
+  def on_item_selected(self):#, item):
     """Return the action for the selected item"""
+    item = self.filtered_items[self.menu.cursor]
     if item.consumable:
       return item.consumable.get_action(self.engine.player)
     elif item.equippable:
@@ -373,8 +412,9 @@ class InventoryRechargeHandler(InventoryEventHandler):
     super().__init__(engine, filter_powered)
     self.battery = battery
 
-  def on_item_selected(self, item):
+  def on_item_selected(self):#, item):
     """Return the action for the selected item"""
+    item = self.filtered_items[self.menu.cursor]
     return actions.RechargeAction(self.engine.player, self.battery, item)
 
 class InventoryDropHandler(InventoryEventHandler):
@@ -382,7 +422,8 @@ class InventoryDropHandler(InventoryEventHandler):
 
   TITLE = 'Select and item to drop'
 
-  def on_item_selected(self, item):
+  def on_item_selected(self):#, item):
+    item = self.filtered_items[self.menu.cursor]
     return actions.DropItem(self.engine.player, item)
 
 class SelectIndexHandler(AskUserEventHandler):
@@ -512,7 +553,7 @@ class MainGameEventHandler(EventHandler):
     if key == tcod.event.K_PERIOD and modifier & (
       tcod.event.KMOD_LSHIFT | tcod.event.KMOD_RSHIFT
     ):
-      return actions.TakeStairsAction(player)
+      return actions.TakeEscapePodAction(player)
 
     if key in MOVE_KEYS:
       dx, dy = MOVE_KEYS[key]
@@ -558,6 +599,9 @@ class MainGameEventHandler(EventHandler):
         self.engine.game_map.show_debug = not self.engine.game_map.show_debug
       else:
         return LookHandler(self.engine)
+
+    elif key == tcod.event.K_RETURN:
+      return BasicMenuHandler(self.engine)
 
 
     return action
@@ -624,22 +668,18 @@ class HistoryViewer(EventHandler):
   def on_render(self, console):
     super().on_render(console)  # Draw the main state as the background.
 
-    log_console = tcod.Console(console.width - 6, console.height - 6)
+    log_console = tcod.Console(console.width-6, console.height-6, order="F")
 
     # Draw a frame with a custom banner title.
-    draw_window(console, 0, 0, log_console.width, log_console.height, 'Message History')
-    #log_console.draw_frame(0, 0, log_console.width, log_console.height)
-    #log_console.print_box(
-    #    0, 0, log_console.width, 1, "┤Message history├", alignment=tcod.CENTER
-    #)
+    render_functions.draw_window(log_console, 0, 0, log_console.width-1, log_console.height-1, 'Message History')
 
     # Render the message log using the cursor parameter.
     self.engine.message_log.render_messages(
         log_console,
         1,
         1,
-        log_console.width - 2,
-        log_console.height - 2,
+        log_console.width - 3,
+        log_console.height - 3,
         self.engine.message_log.messages[: self.cursor + 1],
     )
     log_console.blit(console, 3, 3)

@@ -1,21 +1,41 @@
-def get_tile_bit_code(tiles):
-  """Given a 3x3 grid of tiles, return a bit code that uniquely
-  identifies the configuration of walls in this tile group."""
-  code = 0
-  v = 1
-  for x in range(3):
-    for y in range(3):
-      if x == 1 and y == 1:
+def get_tile_bit_code(tiles, ignore_center=True, tile_classes=['wall','door']):
+  """Given a grid of tiles, generate a bit code where each tile that matches
+  any of the tile_classes will be an ON bit, and any other tile will be an OFF.
+
+  So for a 3x3 array that ignores the center tile, it generates an 8 bit code, ie.
+  0 (binary 00000000) if no tiles match, to 256 (binary 11111111) if every tile matches.
+
+  Supports any sized array, but behavior can be weird if you pass in
+  an array with even sized dimensions (ie. 4x4) and ignore_center == True due
+  to not having an actual center..."""
+  code = 0 # The actual code we will be returning, initialized to 00000000
+  width = len(tiles)
+  height = len(tiles[0])
+  # This works because for a 3x3 tile, 3//2 == 1, and while 1 wouldn't be the middle
+  # of 1,2,3, it *is* the middle index of array [0,1,2]
+  # If you "ignore_center" of an even dimensional array, no guarantees what happens :P
+  center_x = width // 2
+  center_y = height // 2
+  v = 1 # The current "bit" we're processing, represented as an int.
+  for x in range(width):
+    for y in range(height):
+      if ignore_center and x == center_x and y == center_y:
         # Ignore the center tile
         continue
-      if tiles[x,y]['tile_class'] == 'wall' or tiles[x,y]['tile_class'] == 'door':
+      if tiles[x,y]['tile_class'] in tile_classes:
+        # This is a tile class we care about, so toggle this tiles bit
         code += v
-      v = v * 2
+      v = v * 2 # Bit shift for next iteration
   return code
 
-# mask is what bits we care about.  255 cares about every tile position.  Might not be needed...
+# mask is what bits we care about.  255 cares about every tile position and results in the most
+# restrictive check.  ie. if the tile configuration is exactly this in every position, draw this
+# wall.  Less restrictive bit codes are processed after more restrictive, so as we get farther and
+# farther down the chain, we look at fewer tiles in the pattern to determine what should be there.
+
 # subclasses are named based on connection points. ╔ connects down and right, thus is a 'dr'
-# Internally, the array is represented rotated 180, so some of these don't entirely make sense
+# Internally, the array is represented with X being down and Y being across, so the mappings
+# are a bit confusing.
 
 codes = [# Most restrictive
          {'subclass': 'x', 'mask': 255, 'bit_codes': [90, 91, 94, 122, 218]}, # 4 way
@@ -24,9 +44,10 @@ codes = [# Most restrictive
          {'subclass': 'tu', 'mask': 255, 'bit_codes': [74, 222]}, # T with upper connection
          {'subclass': 'tr', 'mask': 255, 'bit_codes': [88, 95]}, # T with right connection
          {'subclass': 'td', 'mask': 255, 'bit_codes': [82, 123]}, # T with down connection
+         {'subclass': 'pillar', 'mask': 255, 'bit_codes': [0]},
 
-         {'subclass': 'h', 'mask': 255, 'bit_codes': [248, 31, 24]},
-         {'subclass': 'v', 'mask': 255, 'bit_codes': [214, 107, 66]},
+         {'subclass': 'h', 'mask': 255, 'bit_codes': [248, 31, 24]}, # Horizontal wall
+         {'subclass': 'v', 'mask': 255, 'bit_codes': [214, 107, 66]}, # Vertical wall
 
          {'subclass': 'ul', 'mask': 255, 'bit_codes': [254, 10]}, # Up and Left connections
          {'subclass': 'dl', 'mask': 255, 'bit_codes': [251, 22]}, # Up and Right
@@ -40,9 +61,9 @@ codes = [# Most restrictive
          {'subclass': 'td', 'mask': 222, 'bit_codes': [82, 86, 210]}, # T with down connection
 
 
-         {'subclass': 'h', 'mask': 95, 'bit_codes': [24]},
+         {'subclass': 'h', 'mask': 95, 'bit_codes': [24]}, # Horizontal wall
          {'subclass': 'h', 'mask': 250, 'bit_codes': [24]},
-         {'subclass': 'v', 'mask': 123, 'bit_codes': [66]},
+         {'subclass': 'v', 'mask': 123, 'bit_codes': [66]}, # Vertical wall
          {'subclass': 'v', 'mask': 222, 'bit_codes': [66]},
 
          {'subclass': 'ul', 'mask': 91, 'bit_codes': [90]}, # Up and Left connections
@@ -64,12 +85,14 @@ codes = [# Most restrictive
 
          ]
 
+# A little lookup cache so we don't have to perform the checks
+# on previously mapped patterns.
 mapped_codes = {}
 
 def get_wall_subclass_for_bit_code(bit_code):
   """Given a bit code from the above function, find the correct wall
-  shape to put in its place.  A bit code of 11111110 represents a tile group
-  who's walls are here:
+  shape to put in its place.  A bit code of 127 (11111110) represents a
+  tile group who's walls are here:
   WWW
   W*W
   WWF

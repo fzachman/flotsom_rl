@@ -1,6 +1,7 @@
 white = (0xFF, 0xFF, 0xFF)
 black = (0x0, 0x0, 0x0)
 red = (0xFF, 0x0, 0x0)
+blue = (0x0,0x0,0xFF)
 
 warning = (0xDD, 0xDD, 0x0)
 
@@ -41,3 +42,7 @@ damage_fire = (255,192,0)
 
 window_border_bright = (225,225,255)
 window_border_dark = (5, 5, 105)
+
+menu_text = white
+menu_background = black
+menu_selected_background = blue

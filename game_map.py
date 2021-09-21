@@ -20,6 +20,14 @@ class GameMap:
     self.visible = np.full((width, height), fill_value=False, order="F")  # Tiles currently in the players los
     self.light_levels = np.full((width, height), fill_value=1.0, order="F")
     self.explored = np.full((width, height), fill_value=False, order="F")  # Tiles the player has seen before
+
+    # Initialize our space field with random stars/empty space
+    self.space_tiles = np.full((width, height), fill_value=self.tile_set.get_tile_type('space', 'basic'))
+    for x in range(len(self.space_tiles)):
+      for y in range(len(self.space_tiles[0])):
+        self.space_tiles[x][y] = self.tile_set.get_tile_type('space')
+
+
     self.downstairs_location = (0,0)
     self._rooms = []
     self.room_lookup = {}
@@ -152,7 +160,7 @@ class GameMap:
     #    condlist=[viewport_visible, viewport_explored],
     #    choicelist=[viewport_tiles["light"], viewport_tiles["dark"]],
     #    default=tile_types.SHROUD
-  #  )
+    #  )
     console.tiles_rgb[0:self.engine.game_world.viewport_width, 0:self.engine.game_world.viewport_height] = np.select(
         condlist=[viewport_explored],
         choicelist=[viewport_tiles["dark"]],
@@ -162,15 +170,6 @@ class GameMap:
     player = self.engine.player
     # Add our player light to our light map
     light_levels = self.light_levels.copy()
-    #coords = self.get_coords_in_radius(player.x, player.y, player.light_source.radius)
-    #light_levels[player.x][player.y] = 1.0
-    #for x, y in coords:
-    #  distance = player.distance(x, y)
-    #  brightness_diff = distance / (player.light_source.radius+2)
-    #  #print(f'Player: ({player.x},{player.y}).  Tile: ({x},{y}).  Distance: {distance}.  Brightness Diff: {brightness_diff}')
-    #  if brightness_diff < light_levels[x][y]:
-    #    light_levels[x][y] = brightness_diff
-
     viewport_light_levels = light_levels[s_x,s_y]
     visible_light_levels = np.select(condlist=[viewport_visible], choicelist=[viewport_light_levels], default=1)
     # Try some more dynamic lighting

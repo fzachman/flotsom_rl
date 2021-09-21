@@ -1,3 +1,7 @@
+#1! Fix post processing of tiles to use bitcodes to search for doors and do better cleaning of odd structures.
+Store bitcodes in its own array so we can reuse it for wall mapping.
+Add damaged wall tiles to tile sets.
+
 Different parts of ship:
 Medical/science - Add "glass" tiles to some rooms for labs/observation
 Engineering - facilities control, maybe auto door cards, maps, secret tunnels?  Maybe repurpose 1 tile wide halls as secret tunnels?
@@ -12,20 +16,25 @@ sphere "maze"
 Hexagon based ship? (Would one >- tile do it?)
 
 
-Add a "BreatherAI" for creatures that need air.
-
-Allow ability to nest AIs.  Ex. BreatherAI + HostileEnemy.
-Breather only checks to see if they are in vacuum and need
-to move towards O2.  Otherwise, HostileEnemy.
-
-Allow you to "float" across space tiles.  Actor needs momentum (simple (dx,dy)) and a new Input Handler that moves them
-every turn.  Bounce off walls? Or maybe stick to walls, since magnet boots.  No other actions possible if floating.
-Means Breaches can actually be way more complicated, as you can cross them.
 
 Energy powered Jetpack accessories can let you fly across space tiles, not losing control.
 
-Space tiles will have their own animation timer that will shift all tiles along an axis, randomly generating new ones at the edge,
-so it looks like orbiting.
+Convert space tile animation to use a single array that just loops around each frame.
 
 Use an action point system where entities will just take a Tick action and activate when they accumulate enough ticks. Allows
 for variable speed entities.
+
+Factions!
+
+Create different factions.  Each faction will have allowed ship types, preferred damage type or upgrade to items, etc...
+Different faction actors will be color coded.  You will have a reputation with different factions which determines how they act
+towards you.  Actors will have 3 different AI groups: hostile, neutral, friendly and a default disposition.
+
+Items:
+
+Items need damage types and a clean way to add modifiers to them.
+
+Info:
+
+Add easy ability for entities to render a description for themselves.  Ex.
+Actors may show faction and physical description, items will show description along with upgrades and stats.

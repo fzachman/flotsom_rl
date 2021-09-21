@@ -15,9 +15,11 @@ class CreatorEngine:
     self.brushes_by_size = {}
     self.brush_sets = {}
     self.current_brush_set = None
-
+    self.is_enemy_turn = False
     self.load_brushes('brushes.json')
 
+  def orbit(self):
+    pass
 
   def load_brushes(self, filename='brushes.json'):
     try:

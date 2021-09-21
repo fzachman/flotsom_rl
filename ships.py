@@ -1,6 +1,7 @@
 import random
 import math
 from enum import Enum, auto
+import numpy as np
 
 import tile_types
 import tile_bit_codes
@@ -78,22 +79,74 @@ class Ship:
 
   def decorate(self, dungeon):
     # Add interesting stuff to each room based on its purpose.
+    # Add "wall" characters to all walls.
+    # First, process the edges of the map, since we can't pull full 3x3 grids from them
+    def set_tile_type(x, y, bit_code):
+      if bit_code != 255:
+        #print(f'{tiles} = {bit_code}')
+        subclass = tile_bit_codes.get_wall_subclass_for_bit_code(bit_code)
+        if subclass:
+          new_tile_type = self.tile_set.get_tile_type('wall', subclass)
+          if new_tile_type:
+            dungeon.tiles[x, y] = new_tile_type
+
+    basic_wall = self.tile_set.get_tile_type('wall', 'basic')
+    # An "empty" 3x3 template we can plug our partial edge slices into in order to generate a bit code for them
+    tile_template = np.array([[basic_wall,basic_wall,basic_wall],[basic_wall,basic_wall,basic_wall],[basic_wall,basic_wall,basic_wall]])
+    # Corners of the map will only be able to pull a 2x2 set of tiles
+    tiles = tile_template.copy()
+    tiles[1:3, 1:3] = dungeon.tiles[0:2,0:2]
+    bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+    set_tile_type(0,0, bit_code)
+
+    tiles = tile_template.copy()
+    tiles[0:2, 1:3] = dungeon.tiles[dungeon.width-2:dungeon.width,0:2]
+    bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+    set_tile_type(dungeon.width-1,0, bit_code)
+
+    tiles = tile_template.copy()
+    tiles[1:3, 0:2] = dungeon.tiles[0:2, dungeon.height-2:dungeon.height]
+    bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+    set_tile_type(0,dungeon.height-1, bit_code)
+
+    tiles = tile_template.copy()
+    tiles[0:2, 0:2] = dungeon.tiles[dungeon.width-2:dungeon.width, dungeon.height-2:dungeon.height]
+    bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+    set_tile_type(dungeon.width-1,dungeon.height-1, bit_code)
+
+    # Now get the edges
+    for x in range(1, dungeon.width - 1):
+      # Top and bottom first
+      tiles = tile_template.copy()
+      tiles[0:3,1:3] = dungeon.tiles[x-1:x+2, 0:2]
+      bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+      set_tile_type(x,0, bit_code)
+
+      tiles = tile_template.copy()
+      tiles[0:3,0:2] = dungeon.tiles[x-1:x+2, dungeon.height-2:dungeon.height]
+      bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+      set_tile_type(x,dungeon.height-1, bit_code)
+
+    for y in range(1, dungeon.height - 1):
+      # Now the sides
+      tiles = tile_template.copy()
+      tiles[1:3, 0:3] = dungeon.tiles[0:2, y-1:y+2]
+      bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+      set_tile_type(0,y, bit_code)
+
+      tiles = tile_template.copy()
+      tiles[0:2,0:3] = dungeon.tiles[dungeon.width-2:dungeon.width,y-1:y+2]
+      bit_code = tile_bit_codes.get_tile_bit_code(tiles)
+      set_tile_type(dungeon.width-1, y, bit_code)
+
+    # Now all tiles in the rest of the map
     for x in range(1, dungeon.width-1):
       for y in range(1, dungeon.height-1):
         if dungeon.tiles[x, y]['tile_class'] == 'wall':
 
           tiles = dungeon.tiles[x-1:x+2, y-1:y+2]
           bit_code = tile_bit_codes.get_tile_bit_code(tiles)
-          if bit_code != 255:
-            #print(f'{tiles} = {bit_code}')
-            subclass = tile_bit_codes.get_wall_subclass_for_bit_code(bit_code)
-            if subclass:
-              new_tile_type = self.tile_set.get_tile_type('wall', subclass)
-              if new_tile_type:
-                dungeon.tiles[x, y] = new_tile_type
-
-
-
+          set_tile_type(x, y, bit_code)
 
 
 class HallShip(Ship):
@@ -222,6 +275,7 @@ class SphereStarShip(Ship):
                                     ))
 
   def post_gen(self, tiles):
+    basic_wall = self.tile_set.get_tile_type('wall', 'basic')
     # Add these here so they don't trigger doors
     radius = (self.sector_width // 2 ) - 2
     for i in range(3):
@@ -234,7 +288,7 @@ class SphereStarShip(Ship):
         for x in range(start_x, end_x):
           for y in range(start_y, end_y):
             if math.sqrt((center_x - x) ** 2 + (center_y - y) **2) > radius:
-              tiles[x,y] = self.tile_set.get_tile_type('wall', 'basic')
+              tiles[x,y] = basic_wall
 
     for i in range(3):
       for j in range(3):
@@ -256,3 +310,20 @@ class SphereStarShip(Ship):
           tiles[center_x,(self.sector_height * (j+1)) - 3] = self.tile_set.get_tile_type('door')
           tiles[center_x-2:center_x+3,(self.sector_height * (j+1)) + 3] = self.tile_set.get_tile_type('wall','basic')
           tiles[center_x,(self.sector_height * (j+1)) + 3] = self.tile_set.get_tile_type('door')
+
+    # This process often leaves wierd diagonal paths that we want to clean up
+    for x in range(len(tiles)-1):
+      for y in range(len(tiles[0])-1):
+        square = tiles[x:x+2,y:y+2]
+        if square[0,0]['tile_class'] == 'wall' and \
+           square[1,1]['tile_class'] == 'wall' and \
+           square[1,0]['tile_class'] != 'wall' and \
+           square[0,1]['tile_class'] != 'wall':
+          xy = random.choice(((1,0), (0,1)))
+          tiles[x + xy[0], y+xy[1]] = basic_wall
+        elif square[1,0]['tile_class'] == 'wall' and \
+           square[0,1]['tile_class'] == 'wall' and \
+           square[1,1]['tile_class'] != 'wall' and \
+           square[0,0]['tile_class'] != 'wall':
+          xy = random.choice(((1,1), (0,0)))
+          tiles[x + xy[0], y+xy[1]] = basic_wall
